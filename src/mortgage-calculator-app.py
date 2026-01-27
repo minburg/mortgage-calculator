@@ -7,98 +7,106 @@ st.set_page_config(layout="wide", page_title="Immobilienrechner für Familienkau
 
 # --- Titel ---
 st.title("👨‍👩‍👧‍👦 Immobilienrechner: Kauf innerhalb der Familie")
+st.markdown("""
+**Willkommen!** Dieses Tool hilft dir zu verstehen, ob sich der Kauf einer Immobilie (z.B. von den Eltern) finanziell lohnt.
+Es berücksichtigt Steuervorteile, Mieteinnahmen und Kosten.
+""")
 
 # --- Seitenleiste für Eingaben ---
 st.sidebar.header("Eingabeparameter")
 
 # --- Kaufpreis und Eigenkapital ---
-with st.sidebar.expander("Kauf & Finanzierung", expanded=True):
+with st.sidebar.expander("1. Kauf & Finanzierung", expanded=True):
+    st.caption("Wie viel kostet das Haus und wie viel Geld bringst du selbst mit?")
     kaufpreis = st.number_input(
         "Kaufpreis der Immobilie (€)",
-        min_value=200000.0, max_value=3000000.0, value=1150000.0, step=10000.0,
-        help="Der notariell beurkundete Kaufpreis der Immobilie."
+        min_value=50000.0, max_value=5000000.0, value=400000.0, step=10000.0,
+        help="Der Preis, der im Kaufvertrag steht. Auf diesen Betrag beziehen sich Finanzierung und Abschreibung."
     )
     anteil_grundstueck = st.slider(
-        "Anteil des Grundstückswerts am Kaufpreis (%)",
-        min_value=10, max_value=50, value=40,
-        help="Schätzung des prozentualen Werts des Grundstücks am Gesamtkaufpreis. Nur der Gebäudewert kann abgeschrieben werden (AfA)."
+        "Anteil des Grundstückswerts (%)",
+        min_value=10, max_value=80, value=20,
+        help="Wichtig für die Steuer: Nur das Gebäude nutzt sich ab und kann abgeschrieben werden (AfA), das Grundstück nicht. Ein typischer Wert ist 20-30%."
     )
     eigenkapital_kaeufer = st.number_input(
-        "Eigenkapital des Käufers (€)",
-        min_value=0.0, value=100000.0, step=5000.0,
-        help="Vorhandenes Kapital, das der Käufer direkt einbringt."
+        "Dein Eigenkapital (€)",
+        min_value=0.0, value=50000.0, step=5000.0,
+        help="Geld, das du auf dem Konto hast und für den Kauf verwendest. Je mehr Eigenkapital, desto weniger Zinsen zahlst du."
     )
     geschenk = st.number_input(
-        "Schenkung von den Verkäufern (€)",
-        min_value=0.0, value=440000.0, step=5000.0,
-        help="Eine Schenkung (z.B. von den Eltern) reduziert den benötigten Kreditbetrag."
+        "Schenkung (z.B. von Eltern) (€)",
+        min_value=0.0, value=50000.0, step=5000.0,
+        help="Falls dir die Verkäufer einen Teil des Kaufpreises schenken, reduziert das deinen Kreditbedarf. Achtung: Schenkungssteuerfreibeträge beachten!"
     )
 
 # --- Kreditdetails ---
-with st.sidebar.expander("Kreditkonditionen", expanded=False):
+with st.sidebar.expander("2. Kreditkonditionen", expanded=False):
+    st.caption("Was verlangt die Bank?")
     zinssatz = st.slider(
-        "Sollzinssatz pro Jahr (%)",
-        min_value=0.5, max_value=10.0, value=3.2, step=0.1,
-        help="Der jährliche Zinssatz für das Darlehen."
+        "Zinssatz pro Jahr (%)",
+        min_value=0.5, max_value=10.0, value=3.5, step=0.1,
+        help="Die 'Gebühr' der Bank für das Leihen des Geldes. Aktuell sind ca. 3.5% - 4.5% üblich."
     )
     tilgung = st.slider(
-        "Anfängliche Tilgung pro Jahr (%)",
+        "Anfängliche Tilgung (%)",
         min_value=1.0, max_value=10.0, value=2.0, step=0.1,
-        help="Der anfängliche Prozentsatz des Kredits, der jährlich getilgt wird."
+        help="Der Teil deiner Rate, der den Schuldenberg tatsächlich verkleinert. Empfohlen sind mind. 2%."
     )
     zinsbindung = st.slider(
         "Zinsbindung (Jahre)",
         min_value=5, max_value=30, value=10,
-        help="Zeitraum der Zinsfestschreibung."
+        help="So lange garantiert dir die Bank den Zinssatz. Danach wird neu verhandelt (Risiko steigender Zinsen!)."
     )
 
 # --- Miete und Kosten ---
-with st.sidebar.expander("Mieteinnahmen & Kosten", expanded=False):
+with st.sidebar.expander("3. Miete & Ausgaben", expanded=False):
+    st.caption("Einnahmen und laufende Kosten")
     mieteinnahmen_pm = st.number_input(
         "Monatliche Kaltmiete (€)",
-        min_value=0.0, value=2116.0, step=50.0,
-        help="Die erwarteten monatlichen Mieteinnahmen."
+        min_value=0.0, value=1200.0, step=50.0,
+        help="Die Miete, die du bekommst (ohne Nebenkosten)."
     )
     mietsteigerung_pa = st.slider(
         "Jährliche Mietsteigerung (%)",
-        min_value=0.0, max_value=5.0, value=3.0, step=0.1,
-        help="Angenommene Mietsteigerung pro Jahr."
+        min_value=0.0, max_value=5.0, value=1.5, step=0.1,
+        help="Um wie viel Prozent erhöhst du die Miete jährlich? (Inflationsausgleich)"
     )
     instandhaltung_pa = st.number_input(
-        "Instandhaltung pro Jahr (€)",
-        min_value=0.0, value=4000.0, step=100.0,
-        help="Jährliche Rücklage für Instandhaltung."
+        "Rücklage Instandhaltung/Jahr (€)",
+        min_value=0.0, value=1500.0, step=100.0,
+        help="Geld, das du für Reparaturen (Dach, Heizung, etc.) zurücklegen solltest. Faustformel: 10-15€ pro m² Wohnfläche im Jahr."
     )
     mietausfall_pa = st.slider(
-        "Pauschale für Mietausfall (% der Jahresmiete)",
+        "Risiko Mietausfall (%)",
         min_value=0.0, max_value=10.0, value=2.0, step=0.5,
-        help="Risikoabschlag für Leerstand."
+        help="Kalkuliere ein, dass die Wohnung mal leer steht oder Mieter nicht zahlen. 2% entspricht ca. 1 Woche Leerstand pro Jahr."
     )
     kostensteigerung_pa = st.slider(
-        "Pauschale Kostensteigerung pro Jahr (%)",
+        "Kostensteigerung pro Jahr (%)",
         min_value=0.0, max_value=5.0, value=2.0, step=0.1,
-        help="Angenommene Steigerung der Instandhaltungskosten."
+        help="Handwerker und Material werden teurer. Wie stark steigen deine Instandhaltungskosten?"
     )
     wertsteigerung_pa = st.slider(
-        "Wertsteigerung Immobilie pro Jahr (%)",
+        "Wertsteigerung Immobilie (%)",
         min_value=0.0, max_value=10.0, value=2.0, step=0.1,
-        help="Angenommene jährliche Wertsteigerung der Immobilie."
+        help="Gewinnt das Haus an Wert? Historisch oft 1-3%, aber keine Garantie!"
     )
 
 # --- Einkommen & Steuer ---
-with st.sidebar.expander("Einkommen & Steuer", expanded=True):
+with st.sidebar.expander("4. Einkommen & Steuer", expanded=True):
+    st.caption("Deine Steuersituation beeinflusst die Rendite stark.")
     st.markdown("### Standard Einkommen (zu versteuern)")
-    std_einkommen_mann = st.number_input("Einkommen Mann (Standard) €", value=71000, step=1000)
-    std_einkommen_frau = st.number_input("Einkommen Frau (Standard) €", value=80000, step=1000)
+    std_einkommen_mann = st.number_input("Einkommen Person A (Standard) €", value=60000, step=1000)
+    std_einkommen_frau = st.number_input("Einkommen Person B (Standard) €", value=50000, step=1000)
     st.info(f"Summe Standard: {std_einkommen_mann + std_einkommen_frau:,.2f} €")
     
-    st.markdown("### Sonderzeitraum")
-    nutze_sonderzeitraum = st.checkbox("Sonderzeitraum aktivieren", value=False)
+    st.markdown("### Sonderzeitraum (optional)")
+    nutze_sonderzeitraum = st.checkbox("Sonderzeitraum aktivieren (z.B. Elternzeit/Teilzeit)", value=False)
     
     if nutze_sonderzeitraum:
         sonder_jahre = st.slider("Zeitraum (Jahre)", 1, 40, (3, 7))
-        sonder_einkommen_mann = st.number_input("Einkommen Mann (Sonder) €", value=71000, step=1000)
-        sonder_einkommen_frau = st.number_input("Einkommen Frau (Sonder) €", value=20000, step=1000)
+        sonder_einkommen_mann = st.number_input("Einkommen Person A (Sonder) €", value=60000, step=1000)
+        sonder_einkommen_frau = st.number_input("Einkommen Person B (Sonder) €", value=20000, step=1000)
         st.info(f"Summe Sonder: {sonder_einkommen_mann + sonder_einkommen_frau:,.2f} €")
     else:
         sonder_jahre = (0, 0)
@@ -205,6 +213,9 @@ while restschuld > 1.0 and jahr < max_laufzeit:
     cashflow_vor_steuer = aktuelle_jahresmiete - jaehrliche_rate_effektiv - aktuelle_instandhaltung - mietausfall_betrag
     cashflow_nach_steuer = cashflow_vor_steuer + steuerersparnis
     
+    # Monatliche Gesamtkosten
+    monatliche_gesamtkosten = (jaehrliche_rate_effektiv + aktuelle_instandhaltung + mietausfall_betrag) / 12
+
     # Vermögensentwicklung
     aktueller_hauswert *= (1 + wertsteigerung_pa / 100)
     aktuelles_vermoegen = aktueller_hauswert - restschuld
@@ -221,6 +232,7 @@ while restschuld > 1.0 and jahr < max_laufzeit:
         "Mietausfall": mietausfall_betrag,
         "Zinsanteil": zinsanteil_jahr,
         "Tilgungsanteil": tilgungsanteil_jahr,
+        "Monatliche Gesamtkosten": monatliche_gesamtkosten,
         "AfA": jaehrliche_afa,
         "Steuerersparnis": steuerersparnis,
         "Cashflow": cashflow_nach_steuer,
@@ -247,11 +259,18 @@ with col1:
         help="Der Betrag, der von der Bank geliehen wird (Kaufpreis - Eigenkapital)."
     )
     st.metric(
-        "Monatliche Rate",
+        "Monatliche Rate (Bank)",
         f"{monatliche_rate:,.2f} €",
         help="Die monatliche Zahlung an die Bank (Zins + Tilgung)."
     )
-    
+
+    avg_monatliche_gesamtkosten = df_projektion['Monatliche Gesamtkosten'].mean() if not df_projektion.empty else 0
+    st.metric(
+        "Ø Monatliche Gesamtkosten",
+        f"{avg_monatliche_gesamtkosten:,.2f} €",
+        help="Durchschnittliche monatliche Gesamtausgaben (Rate an Bank + Instandhaltung + Mietausfall)."
+    )
+
     restschuld_zinsbindung = 0.0
     if not df_projektion.empty:
         # Suche das Jahr der Zinsbindung oder nimm das letzte Jahr
@@ -288,6 +307,40 @@ with col1:
     )
 
 with col2:
+    # Toggle für Analyse
+    show_analysis = st.toggle("Analyse & Risiken anzeigen", value=False)
+
+    if show_analysis:
+        # --- Analyse & Hinweise (Neu) ---
+        st.subheader("💡 Analyse & Risiken")
+        
+        hints_col1, hints_col2 = st.columns(2)
+        
+        with hints_col1:
+            # Cashflow Check
+            if avg_cashflow < 0:
+                st.error(f"⚠️ **Negativer Cashflow:** Du musst durchschnittlich **{abs(avg_cashflow):,.2f} € pro Jahr** zuschießen. Kannst du dir das dauerhaft leisten?")
+            else:
+                st.success(f"✅ **Positiver Cashflow:** Die Immobilie erwirtschaftet einen Überschuss von ca. **{avg_cashflow:,.2f} € pro Jahr**.")
+
+            # Zinsrisiko Check
+            if restschuld_zinsbindung > 0:
+                st.warning(f"⚠️ **Zinsrisiko:** Nach {zinsbindung} Jahren hast du noch **{restschuld_zinsbindung:,.2f} € Schulden**. Wenn die Zinsen dann höher sind (z.B. 6%), steigt deine Rate deutlich!")
+        
+        with hints_col2:
+            # Kosten vs. Miete
+            kosten_quote = (avg_monatliche_gesamtkosten / mieteinnahmen_pm) * 100 if mieteinnahmen_pm > 0 else 0
+            if kosten_quote > 100:
+                st.warning(f"⚠️ **Hohe Kosten:** Deine monatlichen Ausgaben sind **{kosten_quote:.0f}%** deiner Mieteinnahmen. Du bist auf Steuerersparnisse oder Wertsteigerung angewiesen.")
+            else:
+                st.success(f"✅ **Deckung:** Deine Mieteinnahmen decken die laufenden Kosten (ohne Steuer).")
+                
+            # Sonderzeitraum Hinweis
+            if nutze_sonderzeitraum:
+                st.info(f"ℹ️ **Einkommensschwankung:** Du hast einen Sonderzeitraum von Jahr {sonder_jahre[0]} bis {sonder_jahre[1]} definiert. Prüfe in der Tabelle, ob der Cashflow in diesen Jahren tragbar ist.")
+
+        st.markdown("---")
+
     # Tabs für Tabelle und Graph
     tab_tabelle, tab_graph = st.tabs(["Tabelle", "Graph"])
     
@@ -295,7 +348,7 @@ with col2:
         # Spaltenauswahl und Reihenfolge
         cols_to_show = [
             "Jahr", "Einkommen (zvE)", "Grenzsteuersatz (%)", "Restschuld", "Mieteinnahmen", "Instandhaltung", "Mietausfall",
-            "Zinsanteil", "Tilgungsanteil", "AfA", "Steuerersparnis", 
+            "Zinsanteil", "Tilgungsanteil", "Monatliche Gesamtkosten", "AfA", "Steuerersparnis",
             "Cashflow", "Hauswert", "Vermögen", "Zuwachs Vermögen"
         ]
         
@@ -311,7 +364,7 @@ with col2:
         styler.hide(axis="index")
         
         # 1. AfA grün färben (Spalte)
-        # styler.set_properties(subset=["AfA"], **{'background-color': '#e8f5e9', 'color': 'black'})
+        styler.set_properties(subset=["AfA"], **{'background-color': '#e8f5e9', 'color': 'black'})
         
         # 2. Einkommen hervorheben (Sonderzeitraum)
         if nutze_sonderzeitraum:
