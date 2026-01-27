@@ -56,16 +56,21 @@ jobs:
 
       - name: Encrypt with Staticrypt
         run: |
+          # 1. Verschlüssele die temp.html und nenne das Ergebnis index.html
           staticrypt temp.html "${{ secrets.APP_PASSWORD }}" --short -o index.html
-
-      - name: Prepare Deployment Folder
-        run: |
+          
+          # 2. Erstelle den deploy-Ordner
           mkdir deploy
+          
+          # 3. Kopiere die verschlüsselte Datei in den deploy-Ordner
           cp index.html deploy/
+          
+          # 4. (Optional) Überprüfe kurz, ob die Datei da ist, damit die Action nicht blind läuft
+          ls -l deploy/
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: deploy       # Die Action lädt nur den Inhalt von 'deploy' hoch
+          folder: deploy
           branch: gh-pages
-          clean: true          # Löscht alte Dateien auf dem gh-pages Branch
+          clean: true
