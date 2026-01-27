@@ -40,12 +40,13 @@ jobs:
               </style>
             </head>
             <body>
-              <div id="root">
-                <div class="loading-container">
-                  <div class="spinner"></div>
-                  <p>Lade Finanz-App...</p>
-                </div>
+            <div id="root">
+              <div class="loading-container">
+                <div class="spinner"></div>
+                <p>Lade Finanz-App...</p>
+                <p style="font-size: 0.8em; color: #888;">Hinweis: Optimiert für Chrome & Edge. Falls es in Firefox hakt, bitte Chrome nutzen.</p>
               </div>
+            </div>
               <script src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.63.1/build/stlite.js"></script>
               <script>
                 // Wir definieren die Basis-URL explizit, damit Firefox die Chunks findet
