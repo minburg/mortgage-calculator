@@ -21,7 +21,6 @@ jobs:
 
       - name: Create temp.html (stlite template)
         run: |
-          # Wir erstellen die temp.html basierend auf deinem Python-File
           cat <<EOF > temp.html
           <!DOCTYPE html>
           <html>
@@ -29,11 +28,20 @@ jobs:
               <meta charset="UTF-8" />
               <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
               <title>Finanz-Rechner</title>
+          
+              <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.jsdelivr.net https://pypi.org https://files.pythonhosted.org data: blob: 'unsafe-inline' 'unsafe-eval';">
+          
               <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.63.1/build/stlite.css" />
-              <style>body { background-color: #0e1117; }</style>
+              <style>
+                body { background-color: #0e1117; color: white; font-family: sans-serif; }
+                /* Lade-Spinner, damit man sieht, dass etwas passiert */
+                .loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+              </style>
             </head>
             <body>
-              <div id="root"></div>
+              <div id="root">
+                <div class="loading">Finanz-Rechner wird geladen...<br>(Das kann beim ersten Mal 10sek dauern)</div>
+              </div>
               <script src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.63.1/build/stlite.js"></script>
               <script>
                 stlite.mount({
