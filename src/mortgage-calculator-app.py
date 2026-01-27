@@ -20,22 +20,22 @@ with st.sidebar.expander("1. Kauf & Finanzierung", expanded=True):
     st.caption("Wie viel kostet das Haus und wie viel Geld bringst du selbst mit?")
     kaufpreis = st.number_input(
         "Kaufpreis der Immobilie (€)",
-        min_value=50000.0, max_value=5000000.0, value=400000.0, step=10000.0,
+        min_value=200000.0, max_value=3000000.0, value=1150000.0, step=10000.0,
         help="Der Preis, der im Kaufvertrag steht. Auf diesen Betrag beziehen sich Finanzierung und Abschreibung."
     )
     anteil_grundstueck = st.slider(
         "Anteil des Grundstückswerts (%)",
-        min_value=10, max_value=80, value=20,
+        min_value=10, max_value=50, value=40,
         help="Wichtig für die Steuer: Nur das Gebäude nutzt sich ab und kann abgeschrieben werden (AfA), das Grundstück nicht. Ein typischer Wert ist 20-30%."
     )
     eigenkapital_kaeufer = st.number_input(
         "Dein Eigenkapital (€)",
-        min_value=0.0, value=50000.0, step=5000.0,
+        min_value=0.0, value=100000.0, step=5000.0,
         help="Geld, das du auf dem Konto hast und für den Kauf verwendest. Je mehr Eigenkapital, desto weniger Zinsen zahlst du."
     )
     geschenk = st.number_input(
         "Schenkung (z.B. von Eltern) (€)",
-        min_value=0.0, value=50000.0, step=5000.0,
+        min_value=0.0, value=440000.0, step=5000.0,
         help="Falls dir die Verkäufer einen Teil des Kaufpreises schenken, reduziert das deinen Kreditbedarf. Achtung: Schenkungssteuerfreibeträge beachten!"
     )
 
@@ -44,7 +44,7 @@ with st.sidebar.expander("2. Kreditkonditionen", expanded=False):
     st.caption("Was verlangt die Bank?")
     zinssatz = st.slider(
         "Zinssatz pro Jahr (%)",
-        min_value=0.5, max_value=10.0, value=3.5, step=0.1,
+        min_value=0.5, max_value=10.0, value=3.2, step=0.1,
         help="Die 'Gebühr' der Bank für das Leihen des Geldes. Aktuell sind ca. 3.5% - 4.5% üblich."
     )
     tilgung = st.slider(
@@ -63,17 +63,17 @@ with st.sidebar.expander("3. Miete & Ausgaben", expanded=False):
     st.caption("Einnahmen und laufende Kosten")
     mieteinnahmen_pm = st.number_input(
         "Monatliche Kaltmiete (€)",
-        min_value=0.0, value=1200.0, step=50.0,
+        min_value=0.0, value=2116.0, step=50.0,
         help="Die Miete, die du bekommst (ohne Nebenkosten)."
     )
     mietsteigerung_pa = st.slider(
         "Jährliche Mietsteigerung (%)",
-        min_value=0.0, max_value=5.0, value=1.5, step=0.1,
+        min_value=0.0, max_value=5.0, value=3.0, step=0.1,
         help="Um wie viel Prozent erhöhst du die Miete jährlich? (Inflationsausgleich)"
     )
     instandhaltung_pa = st.number_input(
         "Rücklage Instandhaltung/Jahr (€)",
-        min_value=0.0, value=1500.0, step=100.0,
+        min_value=0.0, value=4000.0, step=100.0,
         help="Geld, das du für Reparaturen (Dach, Heizung, etc.) zurücklegen solltest. Faustformel: 10-15€ pro m² Wohnfläche im Jahr."
     )
     mietausfall_pa = st.slider(
@@ -96,8 +96,8 @@ with st.sidebar.expander("3. Miete & Ausgaben", expanded=False):
 with st.sidebar.expander("4. Einkommen & Steuer", expanded=True):
     st.caption("Deine Steuersituation beeinflusst die Rendite stark.")
     st.markdown("### Standard Einkommen (zu versteuern)")
-    std_einkommen_mann = st.number_input("Einkommen Person A (Standard) €", value=60000, step=1000)
-    std_einkommen_frau = st.number_input("Einkommen Person B (Standard) €", value=50000, step=1000)
+    std_einkommen_mann = st.number_input("Einkommen Person A (Standard) €", value=71000, step=1000)
+    std_einkommen_frau = st.number_input("Einkommen Person B (Standard) €", value=80000, step=1000)
     st.info(f"Summe Standard: {std_einkommen_mann + std_einkommen_frau:,.2f} €")
     
     st.markdown("### Sonderzeitraum (optional)")
@@ -105,7 +105,7 @@ with st.sidebar.expander("4. Einkommen & Steuer", expanded=True):
     
     if nutze_sonderzeitraum:
         sonder_jahre = st.slider("Zeitraum (Jahre)", 1, 40, (3, 7))
-        sonder_einkommen_mann = st.number_input("Einkommen Person A (Sonder) €", value=60000, step=1000)
+        sonder_einkommen_mann = st.number_input("Einkommen Person A (Sonder) €", value=71000, step=1000)
         sonder_einkommen_frau = st.number_input("Einkommen Person B (Sonder) €", value=20000, step=1000)
         st.info(f"Summe Sonder: {sonder_einkommen_mann + sonder_einkommen_frau:,.2f} €")
     else:
