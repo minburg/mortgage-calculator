@@ -105,29 +105,38 @@ with st.sidebar.expander("Einkommen & Steuer", expanded=True):
         sonder_einkommen_mann = 0
         sonder_einkommen_frau = 0
 
-# --- Hilfsfunktion: Grenzsteuersatz (Splittingtarif 2024 approx) ---
+# --- Hilfsfunktion: Grenzsteuersatz (Prognose 2026) ---
 def get_grenzsteuersatz(zve_gemeinsam):
+    """
+    Berechnet den Grenzsteuersatz basierend auf dem Splittingtarif.
+    Werte sind eine Prognose für 2026 (erhöhter Grundfreibetrag).
+    """
     # Splitting: Wir betrachten das halbe Einkommen
     zve = zve_gemeinsam / 2
     
-    # Grundfreibetrag 2024: 11.604 €
-    if zve <= 11604:
+    # Prognose Werte für 2026 (konservativ geschätzt)
+    grundfreibetrag = 12500
+    eckwert_zone1 = 18000
+    eckwert_42 = 70000
+    eckwert_45 = 285000
+
+    if zve <= grundfreibetrag:
         return 0.0
     
-    # Zone 1: 11.605 - 17.005 (14% bis 24%)
-    elif zve <= 17005:
-        # Lineare Interpolation für den Grenzsteuersatz
-        return 0.14 + (zve - 11604) / (17005 - 11604) * (0.24 - 0.14)
+    # Zone 1: 14% bis 24% (Progressionszone I)
+    elif zve <= eckwert_zone1:
+        # Lineare Interpolation
+        return 0.14 + (zve - grundfreibetrag) / (eckwert_zone1 - grundfreibetrag) * (0.24 - 0.14)
         
-    # Zone 2: 17.006 - 66.760 (24% bis 42%)
-    elif zve <= 66760:
-        return 0.24 + (zve - 17005) / (66760 - 17005) * (0.42 - 0.24)
+    # Zone 2: 24% bis 42% (Progressionszone II)
+    elif zve <= eckwert_42:
+        return 0.24 + (zve - eckwert_zone1) / (eckwert_42 - eckwert_zone1) * (0.42 - 0.24)
         
-    # Zone 3: 66.761 - 277.825 (42%)
-    elif zve <= 277825:
+    # Zone 3: 42% (Proportionalzone I)
+    elif zve <= eckwert_45:
         return 0.42
         
-    # Reichensteuer (> 277.826) (45%)
+    # Reichensteuer: 45% (Proportionalzone II)
     else:
         return 0.45
 
@@ -205,7 +214,7 @@ while restschuld > 1.0 and jahr < max_laufzeit:
     jahres_daten.append({
         "Jahr": int(jahr),
         "Einkommen (zvE)": zve_aktuell,
-        "Steuersatz (%)": round(aktueller_steuersatz * 100, 1),
+        "Grenzsteuersatz (%)": round(aktueller_steuersatz * 100, 1),
         "Restschuld": max(0, restschuld),
         "Mieteinnahmen": aktuelle_jahresmiete,
         "Instandhaltung": aktuelle_instandhaltung,
@@ -232,8 +241,16 @@ col1, col2 = st.columns([1, 5])
 
 with col1:
     st.subheader("Übersicht")
-    st.metric("Kreditbetrag", f"{kreditbetrag:,.2f} €")
-    st.metric("Monatliche Rate", f"{monatliche_rate:,.2f} €")
+    st.metric(
+        "Kreditbetrag",
+        f"{kreditbetrag:,.2f} €",
+        help="Der Betrag, der von der Bank geliehen wird (Kaufpreis - Eigenkapital)."
+    )
+    st.metric(
+        "Monatliche Rate",
+        f"{monatliche_rate:,.2f} €",
+        help="Die monatliche Zahlung an die Bank (Zins + Tilgung)."
+    )
     
     restschuld_zinsbindung = 0.0
     if not df_projektion.empty:
@@ -244,15 +261,31 @@ with col1:
         else:
             restschuld_zinsbindung = 0.0
             
-    st.metric(f"Restschuld nach {zinsbindung} Jahren", f"{restschuld_zinsbindung:,.2f} €")
-    st.metric("Laufzeit bis Volltilgung", f"{jahr} Jahre")
+    st.metric(
+        f"Restschuld nach {zinsbindung} Jahren",
+        f"{restschuld_zinsbindung:,.2f} €",
+        help="Der verbleibende Kreditbetrag nach Ablauf der Zinsbindung. Dieser muss neu finanziert oder abgelöst werden."
+    )
+    st.metric(
+        "Laufzeit bis Volltilgung",
+        f"{jahr} Jahre",
+        help="Die geschätzte Zeit, bis der Kredit bei gleichbleibenden Konditionen vollständig zurückgezahlt ist."
+    )
     
     st.markdown("---")
     avg_cashflow = df_projektion['Cashflow'].mean() if not df_projektion.empty else 0
-    st.metric("Ø Cashflow (nach Steuer)", f"{avg_cashflow:,.2f} €")
+    st.metric(
+        "Ø Cashflow (nach Steuer)",
+        f"{avg_cashflow:,.2f} €",
+        help="Der durchschnittliche jährliche Überschuss oder Fehlbetrag nach allen Kosten und Steuern."
+    )
     
     end_vermoegen = df_projektion.iloc[-1]['Vermögen'] if not df_projektion.empty else 0
-    st.metric("Vermögen am Ende", f"{end_vermoegen:,.2f} €")
+    st.metric(
+        "Vermögen am Ende",
+        f"{end_vermoegen:,.2f} €",
+        help="Der Wert der Immobilie abzüglich der Restschuld am Ende der Laufzeit."
+    )
 
 with col2:
     # Tabs für Tabelle und Graph
@@ -261,15 +294,15 @@ with col2:
     with tab_tabelle:
         # Spaltenauswahl und Reihenfolge
         cols_to_show = [
-            "Jahr", "Einkommen (zvE)", "Steuersatz (%)", "Restschuld", "Mieteinnahmen", "Instandhaltung", "Mietausfall", 
+            "Jahr", "Einkommen (zvE)", "Grenzsteuersatz (%)", "Restschuld", "Mieteinnahmen", "Instandhaltung", "Mietausfall",
             "Zinsanteil", "Tilgungsanteil", "AfA", "Steuerersparnis", 
             "Cashflow", "Hauswert", "Vermögen", "Zuwachs Vermögen"
         ]
         
         # Formatierung
-        format_dict = {col: "{:,.2f} €" for col in cols_to_show if col not in ["Jahr", "Steuersatz (%)"]}
+        format_dict = {col: "{:,.2f} €" for col in cols_to_show if col not in ["Jahr", "Grenzsteuersatz (%)"]}
         format_dict["Jahr"] = "{:.0f}"
-        format_dict["Steuersatz (%)"] = "{:.1f} %"
+        format_dict["Grenzsteuersatz (%)"] = "{:.1f} %"
 
         # Styling
         styler = df_projektion[cols_to_show].style.format(format_dict)
@@ -277,16 +310,39 @@ with col2:
         # Index verstecken
         styler.hide(axis="index")
         
-        # Spalte AfA grün färben
-        styler.set_properties(subset=["AfA"], **{'background-color': '#d1e7dd', 'color': 'black'})
+        # 1. AfA grün färben (Spalte)
+        # styler.set_properties(subset=["AfA"], **{'background-color': '#e8f5e9', 'color': 'black'})
         
-        # Spalte Einkommen hervorheben, wenn Sonderzeitraum
+        # 2. Einkommen hervorheben (Sonderzeitraum)
         if nutze_sonderzeitraum:
             def highlight_sonder(row):
                 if sonder_jahre[0] <= row['Jahr'] <= sonder_jahre[1]:
                     return ['background-color: #fff3cd; color: black' if col == 'Einkommen (zvE)' else '' for col in row.index]
                 return ['' for _ in row.index]
             styler.apply(highlight_sonder, axis=1)
+
+        # 3. Cashflow färben (Positiv = Grün, Negativ = Rot)
+        def color_cashflow(val):
+            if val < 0:
+                return 'background-color: #ffcdd2; color: black' # Rot
+            elif val > 0:
+                return 'background-color: #c8e6c9; color: black' # Grün
+            return ''
+        styler.applymap(color_cashflow, subset=['Cashflow'])
+
+        # 4. Zuwachs Vermögen färben (Positiv = Grün)
+        def color_growth(val):
+            if val > 0:
+                return 'background-color: #dcedc8; color: black' # Hellgrün
+            return ''
+        styler.applymap(color_growth, subset=['Zuwachs Vermögen'])
+
+        # 5. Steuerersparnis färben (Positiv = Grün)
+        def color_tax_savings(val):
+            if val > 0:
+                return 'background-color: #e1bee7; color: black' # Lila-ish für Steuer
+            return ''
+        styler.applymap(color_tax_savings, subset=['Steuerersparnis'])
 
         st.dataframe(
             styler,
@@ -299,7 +355,7 @@ with col2:
         
         # Auswahl der Metriken für den Graphen
         default_cols = ["Restschuld", "Hauswert", "Vermögen"]
-        available_cols = [c for c in df_projektion.columns if c not in ["Jahr", "Steuersatz (%)"]]
+        available_cols = [c for c in df_projektion.columns if c not in ["Jahr", "Grenzsteuersatz (%)"]]
         
         selected_cols = st.multiselect(
             "Wähle Werte für die Grafik:", 
