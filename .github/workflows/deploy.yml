@@ -56,16 +56,16 @@ jobs:
 
       - name: Encrypt with Staticrypt
         run: |
-          # 1. Verschlüssele die temp.html und nenne das Ergebnis index.html
-          staticrypt temp.html "${{ secrets.APP_PASSWORD }}" --short -o index.html
+          # 1. Verschlüsseln ohne interaktive Abfrage
+          # Wir nutzen --password anstatt es nur hinten anzuhängen
+          staticrypt temp.html -p "${{ secrets.APP_PASSWORD }}" --short -o index.html
           
-          # 2. Erstelle den deploy-Ordner
-          mkdir deploy
+          # 2. Ordner erstellen und verschieben
+          mkdir -p deploy
+          mv index.html deploy/
           
-          # 3. Kopiere die verschlüsselte Datei in den deploy-Ordner
-          cp index.html deploy/
-          
-          # 4. (Optional) Überprüfe kurz, ob die Datei da ist, damit die Action nicht blind läuft
+          # 3. Kontroll-Check (erscheint im Log)
+          echo "Deployment Ordner Inhalt:"
           ls -l deploy/
 
       - name: Deploy to GitHub Pages
