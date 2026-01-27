@@ -29,7 +29,7 @@ jobs:
               <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
               <title>Finanz-Rechner</title>
           
-              <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.jsdelivr.net https://pypi.org https://files.pythonhosted.org data: blob: 'unsafe-inline' 'unsafe-eval'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline' 'unsafe-eval' blob:; worker-src 'self' blob:;">
+              <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval' blob:; connect-src * data: blob:; worker-src * blob:;">
           
               <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.63.1/build/stlite.css" />
               <style>
@@ -37,23 +37,29 @@ jobs:
                 .loading-container { text-align: center; }
                 .spinner { border: 4px solid rgba(255, 255, 255, 0.1); border-left-color: #ff4b4b; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
                 @keyframes spin { to { transform: rotate(360deg); } }
-              </script>
+              </style>
             </head>
             <body>
               <div id="root">
                 <div class="loading-container">
                   <div class="spinner"></div>
-                  <p>Initialisiere Python-Umgebung in Firefox...</p>
+                  <p>Lade Finanz-App...</p>
                 </div>
               </div>
               <script src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.63.1/build/stlite.js"></script>
               <script>
+                // Wir definieren die Basis-URL explizit, damit Firefox die Chunks findet
+                const baseUrl = "https://cdn.jsdelivr.net/npm/@stlite/mountable@0.63.1/build/";
+          
                 stlite.mount({
                   requirements: ["pandas", "altair"],
                   entrypoint: "mortgage-calculator-app.py",
                   files: {
                     "mortgage-calculator-app.py": \`$(cat src/mortgage-calculator-app.py | sed 's/`/\\`/g')\`
-                  }
+                  },
+                  // Diese Option hilft stlite, seine eigenen Teile auf dem CDN zu finden:
+                  archives: [],
+                  stliteMountableServeNodeModules: true,
                 }, document.getElementById("root"));
               </script>
             </body>
