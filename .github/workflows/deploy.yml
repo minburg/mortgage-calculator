@@ -56,25 +56,28 @@ jobs:
 
       - name: Encrypt with Staticrypt
         run: |
-          # 1. Sicherstellen, dass keine alten Reste da sind
-          rm -rf deploy index.html
+          # 1. Debugging: Zeigen, dass die temp.html existiert
+          echo "Prüfe temp.html..."
+          ls -l temp.html
           
-          # 2. Verschlüsseln
-          # WICHTIG: Staticrypt braucht oft das Passwort als erstes Argument nach dem File
-          # Wir nutzen die Syntax: staticrypt <file> <password> -o <output>
-          npx staticrypt temp.html -p "${{ secrets.APP_PASSWORD }}" --short -o index.html
+          # 2. Staticrypt explizit installieren (verhindert npx-Probleme)
+          npm install -g staticrypt
           
-          # 3. Validierung: Prüfen ob die Datei wirklich erstellt wurde
+          # 3. Verschlüsseln
+          # Wir lassen --short weg, damit wir Fehler sehen, falls es welche gibt
+          staticrypt temp.html -p "${{ secrets.APP_PASSWORD }}" -o index.html
+          
+          # 4. Validierung
           if [ ! -f index.html ]; then
-            echo "FEHLER: index.html wurde nicht erstellt!"
+            echo "CRITICAL ERROR: index.html wurde nicht erstellt."
+            echo "Mögliche Ursache: Passwort zu kurz oder Syntax-Fehler."
             exit 1
           fi
           
-          # 4. Ordner erstellen und verschieben
+          # 5. Aufräumen und Verschieben
           mkdir -p deploy
           mv index.html deploy/
-          
-          echo "Erfolg: index.html wurde nach deploy/ verschoben."
+          echo "Erfolg! Datei verschlüsselt und verschoben."
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
