@@ -58,11 +58,14 @@ jobs:
         run: |
           staticrypt temp.html "${{ secrets.APP_PASSWORD }}" --short -o index.html
 
+      - name: Prepare Deployment Folder
+        run: |
+          mkdir deploy
+          cp index.html deploy/
+
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: .
+          folder: deploy       # Die Action lädt nur den Inhalt von 'deploy' hoch
           branch: gh-pages
-          target-folder: .
-          clean: true
-          include: index.html
+          clean: true          # Löscht alte Dateien auf dem gh-pages Branch
