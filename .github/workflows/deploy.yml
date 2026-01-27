@@ -55,29 +55,39 @@ jobs:
           EOF
 
       - name: Encrypt with Staticrypt
+        env:
+          Passwort_Safe: ${{ secrets.APP_PASSWORD }}
         run: |
-          # 1. Debugging: Zeigen, dass die temp.html existiert
-          echo "Prüfe temp.html..."
-          ls -l temp.html
+          # 1. Aufräumen (falls Reste von vorherigen Runs da sind)
+          rm -rf encrypted deploy temp.html
           
-          # 2. Staticrypt explizit installieren (verhindert npx-Probleme)
-          npm install -g staticrypt
-          
-          # 3. Verschlüsseln
-          # Wir lassen --short weg, damit wir Fehler sehen, falls es welche gibt
-          staticrypt temp.html -p "${{ secrets.APP_PASSWORD }}" -o index.html
-          
-          # 4. Validierung
-          if [ ! -f index.html ]; then
-            echo "CRITICAL ERROR: index.html wurde nicht erstellt."
-            echo "Mögliche Ursache: Passwort zu kurz oder Syntax-Fehler."
-            exit 1
+          # 2. temp.html neu erstellen (zur Sicherheit, falls vorher gelöscht)
+          # Hier nutzen wir kurz den vorherigen Step-Code, 
+          # aber eigentlich sollte temp.html aus dem vorherigen Step noch da sein.
+          # Wir prüfen einfach nur, ob sie da ist:
+          if [ ! -f temp.html ]; then
+             echo "::error::temp.html fehlt! Bitte prüfen, ob der Step 'Create index.html' geklappt hat."
+             exit 1
           fi
           
-          # 5. Aufräumen und Verschieben
-          mkdir -p deploy
-          mv index.html deploy/
-          echo "Erfolg! Datei verschlüsselt und verschoben."
+          # 3. Staticrypt ausführen (OHNE -o, einfach Standard)
+          # Das erstellt den Ordner 'encrypted/' und legt dort 'temp.html' rein
+          npx staticrypt temp.html -p "$Passwort_Safe"
+          
+          # 4. Debugging: Zeig uns, was erstellt wurde
+          echo "Inhalt des Verzeichnisses nach Encryption:"
+          ls -R
+          
+          # 5. Verschieben und Umbenennen
+          # Wir erwarten die Datei in encrypted/temp.html
+          if [ -f encrypted/temp.html ]; then
+            mkdir -p deploy
+            mv encrypted/temp.html deploy/index.html
+            echo "✅ Erfolg: Datei wurde nach deploy/index.html verschoben."
+          else
+            echo "❌ FEHLER: Die Datei encrypted/temp.html wurde nicht gefunden."
+            exit 1
+          fi
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
