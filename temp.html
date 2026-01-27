@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>Finanz-Rechner</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.63.1/build/stlite.css" />
+    <style>
+      /* Ein kleiner Hack, um das "Laden"-Gefühl zu verbessern */
+      body { background-color: #0e1117; } 
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.63.1/build/stlite.js"></script>
+    <script>
+      stlite.mount({
+        requirements: ["pandas", "altair"],
+        entrypoint: "mortgage-calculator-app.py",
+        files: {
+          "mortgage-calculator-app.py": `import streamlit as st
+import pandas as pd
+import altair as alt
+
+# --- Konfiguration der Seite ---
+st.set_page_config(layout="wide", page_title="Immobilienrechner für Familienkauf")
+
+# --- Titel ---
+st.title("👨‍👩‍👧‍👦 Immobilienrechner: Kauf innerhalb der Familie")
+
+# --- Seitenleiste für Eingaben ---
+st.sidebar.header("Eingabeparameter")
+
+# --- Kaufpreis und Eigenkapital ---
+with st.sidebar.expander("Kauf & Finanzierung", expanded=True):
+    kaufpreis = st.number_input(
+        "Kaufpreis der Immobilie (€)",
+        min_value=200000.0, max_value=3000000.0, value=1150000.0, step=10000.0,
+        help="Der notariell beurkundete Kaufpreis der Immobilie."
+    )
+    anteil_grundstueck = st.slider(
+        "Anteil des Grundstückswerts am Kaufpreis (%)",
+        min_value=10, max_value=50, value=40,
+        help="Schätzung des prozentualen Werts des Grundstücks am Gesamtkaufpreis. Nur der Gebäudewert kann abgeschrieben werden (AfA)."
+    )
+    eigenkapital_kaeufer = st.number_input(
+        "Eigenkapital des Käufers (€)",
+        min_value=0.0, value=100000.0, step=5000.0,
+        help="Vorhandenes Kapital, das der Käufer direkt einbringt."
+    )
+    geschenk = st.number_input(
+        "Schenkung von den Verkäufern (€)",
+        min_value=0.0, value=440000.0, step=5000.0,
+        help="Eine Schenkung (z.B. von den Eltern) reduziert den benötigten Kreditbetrag."
+    )
+
+# --- Kreditdetails ---
+with st.sidebar.expander("Kreditkonditionen", expanded=False):
+    zinssatz = st.slider(
+        "Sollzinssatz pro Jahr (%)",
+        min_value=0.5, max_value=10.0, value=3.2, step=0.1,
+        help="Der jährliche Zinssatz für das Darlehen."
+    )
+    tilgung = st.slider(
+        "Anfängliche Tilgung pro Jahr (%)",
+        min_value=1.0, max_value=10.0, value=2.0, step=0.1,
+        help="Der anfängliche Prozentsatz des Kredits, der jährlich getilgt wird."
+    )
+    zinsbindung = st.slider(
+        "Zinsbindung (Jahre)",
+        min_value=5, max_value=30, value=10,
+        help="Zeitraum der Zinsfestschreibung."
+    )
+
+# --- Miete und Kosten ---
+with st.sidebar.expander("Mieteinnahmen & Kosten", expanded=False):
+    mieteinnahmen_pm = st.number_input(
+        "Monatliche Kaltmiete (€)",
+        min_value=0.0, value=2116.0, step=50.0,
+        help="Die erwarteten monatlichen Mieteinnahmen."
+    )
+    mietsteigerung_pa = st.slider(
+        "Jährliche Mietsteigerung (%)",
+        min_value=0.0, max_value=5.0, value=3.0, step=0.1,
+        help="Angenommene Mietsteigerung pro Jahr."
+    )
+    instandhaltung_pa = st.number_input(
+        "Instandhaltung pro Jahr (€)",
+        min_value=0.0, value=4000.0, step=100.0,
+        help="Jährliche Rücklage für Instandhaltung."
+    )
+    mietausfall_pa = st.slider(
+        "Pauschale für Mietausfall (% der Jahresmiete)",
+        min_value=0.0, max_value=10.0, value=2.0, step=0.5,
+        help="Risikoabschlag für Leerstand."
+    )
+    kostensteigerung_pa = st.slider(
+        "Pauschale Kostensteigerung pro Jahr (%)",
+        min_value=0.0, max_value=5.0, value=2.0, step=0.1,
+        help="Angenommene Steigerung der Instandhaltungskosten."
+    )
+    wertsteigerung_pa = st.slider(
+        "Wertsteigerung Immobilie pro Jahr (%)",
+        min_value=0.0, max_value=10.0, value=2.0, step=0.1,
+        help="Angenommene jährliche Wertsteigerung der Immobilie."
+    )
+
+# --- Einkommen & Steuer ---
+with st.sidebar.expander("Einkommen & Steuer", expanded=True):
+    st.markdown("### Standard Einkommen (zu versteuern)")
+    std_einkommen_mann = st.number_input("Einkommen Mann (Standard) €", value=71000, step=1000)
+    std_einkommen_frau = st.number_input("Einkommen Frau (Standard) €", value=80000, step=1000)
+    st.info(f"Summe Standard: {std_einkommen_mann + std_einkommen_frau:,.2f} €")
+    
+    st.markdown("### Sonderzeitraum")
+    nutze_sonderzeitraum = st.checkbox("Sonderzeitraum aktivieren", value=False)
+    
+    if nutze_sonderzeitraum:
+        sonder_jahre = st.slider("Zeitraum (Jahre)", 1, 40, (3, 7))
+        sonder_einkommen_mann = st.number_input("Einkommen Mann (Sonder) €", value=71000, step=1000)
+        sonder_einkommen_frau = st.number_input("Einkommen Frau (Sonder) €", value=20000, step=1000)
+        st.info(f"Summe Sonder: {sonder_einkommen_mann + sonder_einkommen_frau:,.2f} €")
+    else:
+        sonder_jahre = (0, 0)
+        sonder_einkommen_mann = 0
+        sonder_einkommen_frau = 0
+
+# --- Hilfsfunktion: Grenzsteuersatz (Splittingtarif 2024 approx) ---
+def get_grenzsteuersatz(zve_gemeinsam):
+    # Splitting: Wir betrachten das halbe Einkommen
+    zve = zve_gemeinsam / 2
+    
+    # Grundfreibetrag 2024: 11.604 €
+    if zve <= 11604:
+        return 0.0
+    
+    # Zone 1: 11.605 - 17.005 (14% bis 24%)
+    elif zve <= 17005:
+        # Lineare Interpolation für den Grenzsteuersatz
+        return 0.14 + (zve - 11604) / (17005 - 11604) * (0.24 - 0.14)
+        
+    # Zone 2: 17.006 - 66.760 (24% bis 42%)
+    elif zve <= 66760:
+        return 0.24 + (zve - 17005) / (66760 - 17005) * (0.42 - 0.24)
+        
+    # Zone 3: 66.761 - 277.825 (42%)
+    elif zve <= 277825:
+        return 0.42
+        
+    # Reichensteuer (> 277.826) (45%)
+    else:
+        return 0.45
+
+# --- Berechnungen ---
+gesamtes_eigenkapital = eigenkapital_kaeufer + geschenk
+kreditbetrag = kaufpreis - gesamtes_eigenkapital
+
+if kreditbetrag <= 0:
+    st.error("Das Eigenkapital übersteigt den Kaufpreis. Es ist kein Kredit notwendig.")
+    st.stop()
+
+# Annuität
+jaehrliche_rate = kreditbetrag * (zinssatz / 100 + tilgung / 100)
+monatliche_rate = jaehrliche_rate / 12
+
+# AfA
+gebaeudewert = kaufpreis * (1 - anteil_grundstueck / 100)
+afa_satz = 0.02
+jaehrliche_afa = gebaeudewert * afa_satz
+
+# --- Projektion ---
+jahres_daten = []
+restschuld = kreditbetrag
+aktuelle_jahresmiete = mieteinnahmen_pm * 12
+aktuelle_instandhaltung = instandhaltung_pa
+aktueller_hauswert = kaufpreis
+vermoegen_vorjahr = kaufpreis - kreditbetrag # Startvermögen (Eigenkapital)
+
+jahr = 0
+max_laufzeit = 80  # Sicherheitslimit
+
+while restschuld > 1.0 and jahr < max_laufzeit:
+    jahr += 1
+    
+    # Einkommen für dieses Jahr bestimmen
+    if nutze_sonderzeitraum and sonder_jahre[0] <= jahr <= sonder_jahre[1]:
+        zve_aktuell = sonder_einkommen_mann + sonder_einkommen_frau
+    else:
+        zve_aktuell = std_einkommen_mann + std_einkommen_frau
+        
+    # Grenzsteuersatz berechnen
+    aktueller_steuersatz = get_grenzsteuersatz(zve_aktuell)
+    
+    zinsanteil_jahr = restschuld * (zinssatz / 100)
+    tilgungsanteil_jahr = jaehrliche_rate - zinsanteil_jahr
+    
+    # Wenn Restschuld kleiner als reguläre Tilgung, dann Restschuld komplett tilgen
+    if tilgungsanteil_jahr > restschuld:
+        tilgungsanteil_jahr = restschuld
+        jaehrliche_rate_effektiv = zinsanteil_jahr + tilgungsanteil_jahr
+    else:
+        jaehrliche_rate_effektiv = jaehrliche_rate
+
+    restschuld -= tilgungsanteil_jahr
+    
+    # Steuer
+    werbungskosten = zinsanteil_jahr + jaehrliche_afa + aktuelle_instandhaltung
+    zu_versteuernde_einnahmen = aktuelle_jahresmiete - werbungskosten
+    
+    # Steuerersparnis: Negatives Ergebnis mindert das zu versteuernde Einkommen
+    # Wir nehmen hier den Grenzsteuersatz an
+    steuerersparnis = -zu_versteuernde_einnahmen * aktueller_steuersatz
+    
+    # Cashflow
+    mietausfall_betrag = aktuelle_jahresmiete * (mietausfall_pa / 100)
+    cashflow_vor_steuer = aktuelle_jahresmiete - jaehrliche_rate_effektiv - aktuelle_instandhaltung - mietausfall_betrag
+    cashflow_nach_steuer = cashflow_vor_steuer + steuerersparnis
+    
+    # Vermögensentwicklung
+    aktueller_hauswert *= (1 + wertsteigerung_pa / 100)
+    aktuelles_vermoegen = aktueller_hauswert - restschuld
+    zuwachs_vermoegen = aktuelles_vermoegen - vermoegen_vorjahr
+    vermoegen_vorjahr = aktuelles_vermoegen
+
+    jahres_daten.append({
+        "Jahr": int(jahr),
+        "Einkommen (zvE)": zve_aktuell,
+        "Steuersatz (%)": round(aktueller_steuersatz * 100, 1),
+        "Restschuld": max(0, restschuld),
+        "Mieteinnahmen": aktuelle_jahresmiete,
+        "Instandhaltung": aktuelle_instandhaltung,
+        "Mietausfall": mietausfall_betrag,
+        "Zinsanteil": zinsanteil_jahr,
+        "Tilgungsanteil": tilgungsanteil_jahr,
+        "AfA": jaehrliche_afa,
+        "Steuerersparnis": steuerersparnis,
+        "Cashflow": cashflow_nach_steuer,
+        "Hauswert": aktueller_hauswert,
+        "Vermögen": aktuelles_vermoegen,
+        "Zuwachs Vermögen": zuwachs_vermoegen
+    })
+    
+    # Inflation
+    aktuelle_jahresmiete *= (1 + mietsteigerung_pa / 100)
+    aktuelle_instandhaltung *= (1 + kostensteigerung_pa / 100)
+
+df_projektion = pd.DataFrame(jahres_daten)
+
+# --- Ergebnisse ---
+# Layout Anpassung: 1 Teil Übersicht, 4 Teile Verlauf (20% / 80%)
+col1, col2 = st.columns([1, 5])
+
+with col1:
+    st.subheader("Übersicht")
+    st.metric("Kreditbetrag", f"{kreditbetrag:,.2f} €")
+    st.metric("Monatliche Rate", f"{monatliche_rate:,.2f} €")
+    
+    restschuld_zinsbindung = 0.0
+    if not df_projektion.empty:
+        # Suche das Jahr der Zinsbindung oder nimm das letzte Jahr
+        row = df_projektion[df_projektion['Jahr'] == zinsbindung]
+        if not row.empty:
+            restschuld_zinsbindung = row.iloc[0]['Restschuld']
+        else:
+            restschuld_zinsbindung = 0.0
+            
+    st.metric(f"Restschuld nach {zinsbindung} Jahren", f"{restschuld_zinsbindung:,.2f} €")
+    st.metric("Laufzeit bis Volltilgung", f"{jahr} Jahre")
+    
+    st.markdown("---")
+    avg_cashflow = df_projektion['Cashflow'].mean() if not df_projektion.empty else 0
+    st.metric("Ø Cashflow (nach Steuer)", f"{avg_cashflow:,.2f} €")
+    
+    end_vermoegen = df_projektion.iloc[-1]['Vermögen'] if not df_projektion.empty else 0
+    st.metric("Vermögen am Ende", f"{end_vermoegen:,.2f} €")
+
+with col2:
+    # Tabs für Tabelle und Graph
+    tab_tabelle, tab_graph = st.tabs(["Tabelle", "Graph"])
+    
+    with tab_tabelle:
+        # Spaltenauswahl und Reihenfolge
+        cols_to_show = [
+            "Jahr", "Einkommen (zvE)", "Steuersatz (%)", "Restschuld", "Mieteinnahmen", "Instandhaltung", "Mietausfall", 
+            "Zinsanteil", "Tilgungsanteil", "AfA", "Steuerersparnis", 
+            "Cashflow", "Hauswert", "Vermögen", "Zuwachs Vermögen"
+        ]
+        
+        # Formatierung
+        format_dict = {col: "{:,.2f} €" for col in cols_to_show if col not in ["Jahr", "Steuersatz (%)"]}
+        format_dict["Jahr"] = "{:.0f}"
+        format_dict["Steuersatz (%)"] = "{:.1f} %"
+
+        # Styling
+        styler = df_projektion[cols_to_show].style.format(format_dict)
+        
+        # Index verstecken
+        styler.hide(axis="index")
+        
+        # Spalte AfA grün färben
+        styler.set_properties(subset=["AfA"], **{'background-color': '#d1e7dd', 'color': 'black'})
+        
+        # Spalte Einkommen hervorheben, wenn Sonderzeitraum
+        if nutze_sonderzeitraum:
+            def highlight_sonder(row):
+                if sonder_jahre[0] <= row['Jahr'] <= sonder_jahre[1]:
+                    return ['background-color: #fff3cd; color: black' if col == 'Einkommen (zvE)' else '' for col in row.index]
+                return ['' for _ in row.index]
+            styler.apply(highlight_sonder, axis=1)
+
+        st.dataframe(
+            styler,
+            use_container_width=True,
+            height=800
+        )
+        
+    with tab_graph:
+        st.subheader("Visuelle Auswertung")
+        
+        # Auswahl der Metriken für den Graphen
+        default_cols = ["Restschuld", "Hauswert", "Vermögen"]
+        available_cols = [c for c in df_projektion.columns if c not in ["Jahr", "Steuersatz (%)"]]
+        
+        selected_cols = st.multiselect(
+            "Wähle Werte für die Grafik:", 
+            available_cols, 
+            default=default_cols
+        )
+        
+        if selected_cols:
+            # Daten für Altair vorbereiten: Schmelzen (Melt) für "Tidy Data"
+            chart_data = df_projektion.melt('Jahr', value_vars=selected_cols, var_name='Kategorie', value_name='Wert')
+            
+            # Altair Chart erstellen
+            chart = alt.Chart(chart_data).mark_line(point=True).encode(
+                x=alt.X('Jahr:O', title='Jahr'), # Ordinal für diskrete Jahre
+                y=alt.Y('Wert:Q', title='Betrag (€)', scale=alt.Scale(zero=False)), # zero=False erlaubt bessere Skalierung bei negativen Werten
+                color='Kategorie:N',
+                tooltip=[
+                    alt.Tooltip('Jahr', title='Jahr'),
+                    alt.Tooltip('Kategorie', title='Kategorie'),
+                    alt.Tooltip('Wert', title='Wert', format='.2s') # .2s für SI-Präfixe (k, M, etc.)
+                ]
+            ).properties(
+                height=600 # Feste Höhe für den Graphen
+            ).interactive()
+            
+            st.altair_chart(chart, use_container_width=True)
+        else:
+            st.info("Bitte wähle mindestens einen Wert aus.")`
+        }
+      }, document.getElementById("root"));
+    </script>
+  </body>
+</html>
