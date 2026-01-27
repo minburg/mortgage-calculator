@@ -1,0 +1,68 @@
+name: Deploy Protected Stlite App
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (for Staticrypt)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Staticrypt
+        run: npm install -g staticrypt
+
+      - name: Create index.html (stlite)
+        run: |
+          # Pfad zu deiner Datei: src/mortgage-calculator-app.py
+          cat <<EOF > temp.html
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+              <title>Finanz-Rechner</title>
+              <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.63.1/build/stlite.css" />
+              <style>
+                /* Ein kleiner Hack, um das "Laden"-Gefühl zu verbessern */
+                body { background-color: #0e1117; } 
+              </style>
+            </head>
+            <body>
+              <div id="root"></div>
+              <script src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.63.1/build/stlite.js"></script>
+              <script>
+                stlite.mount({
+                  requirements: ["pandas", "altair"],
+                  entrypoint: "mortgage-calculator-app.py",
+                  files: {
+                    "mortgage-calculator-app.py": \`$(cat src/mortgage-calculator-app.py | sed 's/`/\\`/g')\`
+                  }
+                }, document.getElementById("root"));
+              </script>
+            </body>
+          </html>
+          EOF
+
+      - name: Encrypt with Staticrypt
+        run: |
+          staticrypt temp.html "${{ secrets.APP_PASSWORD }}" --short -o index.html
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: .
+          branch: gh-pages
+          target-folder: .
+          clean: true
+          include: index.html
