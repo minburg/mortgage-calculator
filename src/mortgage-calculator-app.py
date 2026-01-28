@@ -113,6 +113,15 @@ with st.sidebar.expander("4. Einkommen & Steuer", expanded=True):
         sonder_einkommen_mann = 0
         sonder_einkommen_frau = 0
 
+# --- Inflation ---
+with st.sidebar.expander("5. Inflation & Sonstiges", expanded=False):
+    st.caption("Annahme für die Geldentwertung")
+    inflationsrate = st.slider(
+        "Angenommene Inflation pro Jahr (%)",
+        min_value=0.0, max_value=10.0, value=2.0, step=0.1,
+        help="Um diesen Wert verringert sich die Kaufkraft des Geldes jährlich. Wenn du die 'Inflationsbereinigung' aktivierst, werden alle zukünftigen Werte auf heutige Kaufkraft umgerechnet."
+    )
+
 # --- Hilfsfunktion: Grenzsteuersatz (Prognose 2026) ---
 def get_grenzsteuersatz(zve_gemeinsam):
     """
@@ -215,6 +224,11 @@ while restschuld > 1.0 and jahr < max_laufzeit:
     
     # Monatliche Gesamtkosten
     monatliche_gesamtkosten = (jaehrliche_rate_effektiv + aktuelle_instandhaltung + mietausfall_betrag) / 12
+    
+    # Monatlicher Eigenaufwand (Realbelastung)
+    # Was muss ich wirklich draufzahlen (oder bekomme ich raus)?
+    # Kosten - Einnahmen. Wenn positiv: Ich muss zahlen. Wenn negativ: Ich bekomme Geld.
+    monatlicher_eigenaufwand = monatliche_gesamtkosten - (aktuelle_jahresmiete / 12)
 
     # Vermögensentwicklung
     aktueller_hauswert *= (1 + wertsteigerung_pa / 100)
@@ -233,6 +247,7 @@ while restschuld > 1.0 and jahr < max_laufzeit:
         "Zinsanteil": zinsanteil_jahr,
         "Tilgungsanteil": tilgungsanteil_jahr,
         "Monatliche Gesamtkosten": monatliche_gesamtkosten,
+        "Monatlicher Eigenaufwand": monatlicher_eigenaufwand,
         "AfA": jaehrliche_afa,
         "Steuerersparnis": steuerersparnis,
         "Cashflow": cashflow_nach_steuer,
@@ -251,8 +266,31 @@ df_projektion = pd.DataFrame(jahres_daten)
 # Layout Anpassung: 1 Teil Übersicht, 4 Teile Verlauf (20% / 80%)
 col1, col2 = st.columns([1, 5])
 
+# Toggles definieren (in col2, damit sie rechts oben sind)
+with col2:
+    t_col1, t_col2 = st.columns(2)
+    with t_col1:
+        show_analysis = st.toggle("Analyse & Risiken anzeigen", value=True)
+    with t_col2:
+        show_inflation = st.toggle("Inflationsbereinigt anzeigen", value=False, help="Rechnet alle zukünftigen Werte auf die heutige Kaufkraft herunter.")
+
+# Datenaufbereitung für Anzeige (Inflation)
+if show_inflation and inflationsrate > 0:
+    df_display = df_projektion.copy()
+    # Alle Spalten außer Jahr und Prozentwerte anpassen
+    cols_to_adjust = [c for c in df_display.columns if c not in ["Jahr", "Grenzsteuersatz (%)"]]
+    for col in cols_to_adjust:
+        # Formel: Wert / ((1 + Inflation/100) ^ Jahr)
+        df_display[col] = df_display.apply(lambda row: row[col] / ((1 + inflationsrate/100) ** row['Jahr']), axis=1)
+else:
+    df_display = df_projektion
+
 with col1:
     st.subheader("Übersicht")
+    # Hinweis wenn Inflation aktiv
+    if show_inflation:
+        st.caption(f"⚠️ Werte inflationsbereinigt ({inflationsrate}%)")
+        
     st.metric(
         "Kreditbetrag",
         f"{kreditbetrag:,.2f} €",
@@ -264,17 +302,24 @@ with col1:
         help="Die monatliche Zahlung an die Bank (Zins + Tilgung)."
     )
 
-    avg_monatliche_gesamtkosten = df_projektion['Monatliche Gesamtkosten'].mean() if not df_projektion.empty else 0
+    avg_monatliche_gesamtkosten = df_display['Monatliche Gesamtkosten'].mean() if not df_display.empty else 0
     st.metric(
         "Ø Monatliche Gesamtkosten",
         f"{avg_monatliche_gesamtkosten:,.2f} €",
         help="Durchschnittliche monatliche Gesamtausgaben (Rate an Bank + Instandhaltung + Mietausfall)."
     )
+    
+    avg_eigenaufwand = df_display['Monatlicher Eigenaufwand'].mean() if not df_display.empty else 0
+    st.metric(
+        "Ø Monatlicher Eigenaufwand",
+        f"{avg_eigenaufwand:,.2f} €",
+        help="Was du monatlich wirklich draufzahlst (Kosten minus Mieteinnahmen). Negativ bedeutet Gewinn."
+    )
 
     restschuld_zinsbindung = 0.0
-    if not df_projektion.empty:
+    if not df_display.empty:
         # Suche das Jahr der Zinsbindung oder nimm das letzte Jahr
-        row = df_projektion[df_projektion['Jahr'] == zinsbindung]
+        row = df_display[df_display['Jahr'] == zinsbindung]
         if not row.empty:
             restschuld_zinsbindung = row.iloc[0]['Restschuld']
         else:
@@ -283,7 +328,7 @@ with col1:
     st.metric(
         f"Restschuld nach {zinsbindung} Jahren",
         f"{restschuld_zinsbindung:,.2f} €",
-        help="Der verbleibende Kreditbetrag nach Ablauf der Zinsbindung. Dieser muss neu finanziert oder abgelöst werden."
+        help="Der verbleibende Kreditbetrag nach Ablauf der Zinsbindung."
     )
     st.metric(
         "Laufzeit bis Volltilgung",
@@ -292,14 +337,14 @@ with col1:
     )
     
     st.markdown("---")
-    avg_cashflow = df_projektion['Cashflow'].mean() if not df_projektion.empty else 0
+    avg_cashflow = df_display['Cashflow'].mean() if not df_display.empty else 0
     st.metric(
         "Ø Cashflow (nach Steuer)",
         f"{avg_cashflow:,.2f} €",
         help="Der durchschnittliche jährliche Überschuss oder Fehlbetrag nach allen Kosten und Steuern."
     )
     
-    end_vermoegen = df_projektion.iloc[-1]['Vermögen'] if not df_projektion.empty else 0
+    end_vermoegen = df_display.iloc[-1]['Vermögen'] if not df_display.empty else 0
     st.metric(
         "Vermögen am Ende",
         f"{end_vermoegen:,.2f} €",
@@ -307,12 +352,11 @@ with col1:
     )
 
 with col2:
-    # Toggle für Analyse
-    show_analysis = st.toggle("Analyse & Risiken anzeigen", value=False)
-
     if show_analysis:
         # --- Analyse & Hinweise (Neu) ---
         st.subheader("💡 Analyse & Risiken")
+        if show_inflation:
+            st.caption(f"Hinweis: Die Analyse basiert auf den inflationsbereinigten Werten ({inflationsrate}% p.a.).")
         
         hints_col1, hints_col2 = st.columns(2)
         
@@ -329,7 +373,10 @@ with col2:
         
         with hints_col2:
             # Kosten vs. Miete
-            kosten_quote = (avg_monatliche_gesamtkosten / mieteinnahmen_pm) * 100 if mieteinnahmen_pm > 0 else 0
+            # Hier nutzen wir die nominalen Werte für die Quote, da Miete und Kosten im gleichen Jahr anfallen
+            # Aber da wir df_display nutzen, sind beide diskontiert, das Verhältnis bleibt also gleich.
+            kosten_quote = (avg_monatliche_gesamtkosten / (df_display['Mieteinnahmen'].mean()/12)) * 100 if df_display['Mieteinnahmen'].mean() > 0 else 0
+            
             if kosten_quote > 100:
                 st.warning(f"⚠️ **Hohe Kosten:** Deine monatlichen Ausgaben sind **{kosten_quote:.0f}%** deiner Mieteinnahmen. Du bist auf Steuerersparnisse oder Wertsteigerung angewiesen.")
             else:
@@ -348,7 +395,7 @@ with col2:
         # Spaltenauswahl und Reihenfolge
         cols_to_show = [
             "Jahr", "Einkommen (zvE)", "Grenzsteuersatz (%)", "Restschuld", "Mieteinnahmen", "Instandhaltung", "Mietausfall",
-            "Zinsanteil", "Tilgungsanteil", "Monatliche Gesamtkosten", "AfA", "Steuerersparnis",
+            "Zinsanteil", "Tilgungsanteil", "Monatliche Gesamtkosten", "Monatlicher Eigenaufwand", "AfA", "Steuerersparnis",
             "Cashflow", "Hauswert", "Vermögen", "Zuwachs Vermögen"
         ]
         
@@ -358,7 +405,7 @@ with col2:
         format_dict["Grenzsteuersatz (%)"] = "{:.1f} %"
 
         # Styling
-        styler = df_projektion[cols_to_show].style.format(format_dict)
+        styler = df_display[cols_to_show].style.format(format_dict)
         
         # Index verstecken
         styler.hide(axis="index")
@@ -396,6 +443,15 @@ with col2:
                 return 'background-color: #e1bee7; color: black' # Lila-ish für Steuer
             return ''
         styler.applymap(color_tax_savings, subset=['Steuerersparnis'])
+        
+        # 6. Eigenaufwand färben (Positiv = Rot (Zuzahlung), Negativ = Grün (Überschuss))
+        def color_eigenaufwand(val):
+            if val > 0:
+                return 'background-color: #ffebee; color: black' # Leichtes Rot
+            elif val < 0:
+                return 'background-color: #e8f5e9; color: black' # Leichtes Grün
+            return ''
+        styler.applymap(color_eigenaufwand, subset=['Monatlicher Eigenaufwand'])
 
         st.dataframe(
             styler,
@@ -408,7 +464,7 @@ with col2:
         
         # Auswahl der Metriken für den Graphen
         default_cols = ["Restschuld", "Hauswert", "Vermögen"]
-        available_cols = [c for c in df_projektion.columns if c not in ["Jahr", "Grenzsteuersatz (%)"]]
+        available_cols = [c for c in df_display.columns if c not in ["Jahr", "Grenzsteuersatz (%)"]]
         
         selected_cols = st.multiselect(
             "Wähle Werte für die Grafik:", 
@@ -418,7 +474,7 @@ with col2:
         
         if selected_cols:
             # Daten für Altair vorbereiten: Schmelzen (Melt) für "Tidy Data"
-            chart_data = df_projektion.melt('Jahr', value_vars=selected_cols, var_name='Kategorie', value_name='Wert')
+            chart_data = df_display.melt('Jahr', value_vars=selected_cols, var_name='Kategorie', value_name='Wert')
             
             # Altair Chart erstellen
             chart = alt.Chart(chart_data).mark_line(point=True).encode(
