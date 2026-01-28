@@ -35,7 +35,7 @@ with st.sidebar.expander("1. Startkapital", expanded=True):
     startkapital_gesamt = eigenkapital_kaeufer + geschenk
 
 # --- Szenario A: Immobilienkauf ---
-if szenario == "Immobilienkauf (Familie)":
+if szenario == "Immobilienkauf (innerhalb Familie)":
     # --- Kaufpreis ---
     with st.sidebar.expander("2. Kauf & Finanzierung", expanded=True):
         st.caption("Wie viel kostet das Haus und wie viel Geld bringst du selbst mit?")
@@ -162,7 +162,7 @@ with st.sidebar.expander("Inflation & Sonstiges", expanded=False):
 # ==============================================================================
 # LOGIK: IMMOBILIENKAUF
 # ==============================================================================
-if szenario == "Immobilienkauf (Familie)":
+if szenario == "Immobilienkauf (innerhalb Familie)":
     # --- Hilfsfunktion: Grenzsteuersatz ---
     def get_grenzsteuersatz(zve_gemeinsam):
         zve = zve_gemeinsam / 2
@@ -262,7 +262,7 @@ if szenario == "Immobilienkauf (Familie)":
     # Toggles
     with col2:
         t_col1, t_col2 = st.columns(2)
-        with t_col1: show_analysis = st.toggle("Analyse & Risiken anzeigen", value=True)
+        with t_col1: show_analysis = st.toggle("Analyse & Risiken anzeigen", value=False)
         with t_col2: show_inflation = st.toggle("Inflationsbereinigt anzeigen", value=False, help="Rechnet alle zukünftigen Werte auf die heutige Kaufkraft herunter.")
 
     # Inflation
