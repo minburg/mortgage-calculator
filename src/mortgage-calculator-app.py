@@ -19,24 +19,39 @@ szenario = st.sidebar.radio(
 st.sidebar.markdown("---")
 st.sidebar.header("Eingabeparameter")
 
-# --- Gemeinsame Parameter (Eigenkapital) ---
-with st.sidebar.expander("1. Startkapital", expanded=True):
-    st.caption("Verfügbares Vermögen für beide Szenarien")
-    eigenkapital_kaeufer = st.number_input(
-        "Dein Eigenkapital (€)",
-        min_value=0.0, value=100000.0, step=5000.0,
-        help="Geld, das du auf dem Konto hast und für den (Haus/ETF)Kauf verwendest. Je mehr Eigenkapital, desto weniger Zinsen zahlst du (Haus)."
-    )
-    geschenk = st.number_input(
-        "Schenkung (z.B. von Eltern) (€)",
-        min_value=0.0, value=440000.0, step=5000.0,
-        help="Falls dir die Verkäufer einen Teil des Kaufpreises schenken, reduziert das deinen Kreditbedarf. Achtung: Schenkungssteuerfreibeträge beachten!"
-    )
-    startkapital_gesamt = eigenkapital_kaeufer + geschenk
+# --- Globale Variablen Initialisierung ---
+eigenkapital_a = 0.0
+eigenkapital_b = 0.0
+geschenk_a = 0.0
+geschenk_b = 0.0
+startkapital_gesamt = 0.0
 
 # --- Szenario A: Immobilienkauf ---
 if szenario == "Immobilienkauf (innerhalb Familie)":
-    # --- Kaufpreis ---
+    
+    # --- 1. Eigentumsverhältnisse & Kapital ---
+    with st.sidebar.expander("1. Eigentum & Kapital", expanded=True):
+        eigentums_modus = st.radio("Eigentumsverhältnisse", ["Alleineigentum (Eine Person)", "Gemeinschaftseigentum (50/50)"])
+        
+        if eigentums_modus == "Alleineigentum (Eine Person)":
+            eigentuemer = st.selectbox("Wer ist der Eigentümer (Grundbuch)?", ["Person A (meist Hauptverdiener)", "Person B"])
+            st.caption("Das Eigenkapital wird dem Eigentümer zugerechnet.")
+            eigenkapital_a = st.number_input("Eigenkapital Käufer (€)", value=100000.0, step=5000.0, help="Geld, das du auf dem Konto hast und für den Kauf verwendest.")
+            geschenk_a = st.number_input("Schenkung an Käufer (€)", value=440000.0, step=5000.0, help="Falls dir die Verkäufer einen Teil des Kaufpreises schenken.")
+            startkapital_gesamt = eigenkapital_a + geschenk_a
+            
+        else:
+            st.caption("Beide Partner bringen Kapital ein.")
+            col_ek1, col_ek2 = st.columns(2)
+            with col_ek1:
+                eigenkapital_a = st.number_input("Eigenkapital Person A (€)", value=50000.0, step=5000.0, help="Eigenkapital von Person A.")
+                geschenk_a = st.number_input("Schenkung an A (€)", value=220000.0, step=5000.0, help="Schenkung an Person A.")
+            with col_ek2:
+                eigenkapital_b = st.number_input("Eigenkapital Person B (€)", value=50000.0, step=5000.0, help="Eigenkapital von Person B.")
+                geschenk_b = st.number_input("Schenkung an B (€)", value=220000.0, step=5000.0, help="Schenkung an Person B.")
+            startkapital_gesamt = eigenkapital_a + geschenk_a + eigenkapital_b + geschenk_b
+
+    # --- 2. Kaufpreis ---
     with st.sidebar.expander("2. Kauf & Finanzierung", expanded=True):
         st.caption("Wie viel kostet das Haus und wie viel Geld bringst du selbst mit?")
         kaufpreis = st.number_input(
@@ -48,88 +63,38 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
         st.markdown("##### Kaufnebenkosten")
         col_nk1, col_nk2 = st.columns(2)
         with col_nk1:
-            notar_grundbuch_prozent = st.number_input(
-                "Notar & Grundbuch (%)",
-                min_value=0.0, max_value=5.0, value=2.0, step=0.1,
-                help="Kosten für Beurkundung und Grundbucheintrag. Faustformel: 1.5% - 2.0% des Kaufpreises."
-            )
+            notar_grundbuch_prozent = st.number_input("Notar & Grundbuch (%)", value=2.0, step=0.1, help="Kosten für Beurkundung und Grundbucheintrag. Faustformel: 1.5% - 2.0% des Kaufpreises.")
         with col_nk2:
-            grunderwerbsteuer_prozent = st.number_input(
-                "Grunderwerbsteuer (%)",
-                min_value=0.0, max_value=7.0, value=0.0, step=0.5,
-                help="Steuer beim Immobilienkauf (je nach Bundesland 3.5% - 6.5%). WICHTIG: Bei Verkauf an Kinder/Ehepartner meist 0%!"
-            )
+            grunderwerbsteuer_prozent = st.number_input("Grunderwerbsteuer (%)", value=0.0, step=0.5, help="Steuer beim Immobilienkauf (je nach Bundesland 3.5% - 6.5%). WICHTIG: Bei Verkauf an Kinder/Ehepartner meist 0%!")
             
-        anteil_grundstueck = st.slider(
-            "Anteil des Grundstückswerts (%)",
-            min_value=10, max_value=80, value=40,
-            help="Wichtig für die Steuer: Nur das Gebäude nutzt sich ab und kann abgeschrieben werden (AfA), das Grundstück nicht. Ein typischer Wert ist 20-30%."
-        )
+        anteil_grundstueck = st.slider("Anteil des Grundstückswerts (%)", 10, 80, 40, help="Wichtig für die Steuer: Nur das Gebäude nutzt sich ab und kann abgeschrieben werden (AfA), das Grundstück nicht. Ein typischer Wert ist 20-30%.")
     
-    # --- Kredit ---
+    # --- 3. Kredit ---
     with st.sidebar.expander("3. Kreditkonditionen", expanded=False):
         st.caption("Was verlangt die Bank?")
-        zinssatz = st.slider(
-            "Zinssatz pro Jahr (%)",
-            min_value=0.5, max_value=10.0, value=3.2, step=0.1,
-            help="Die 'Gebühr' der Bank für das Leihen des Geldes. Aktuell sind ca. 3.5% - 4.5% üblich."
-        )
-        tilgung = st.slider(
-            "Anfängliche Tilgung (%)",
-            min_value=1.0, max_value=10.0, value=2.0, step=0.1,
-            help="Der Teil deiner Rate, der den Schuldenberg tatsächlich verkleinert. Empfohlen sind mind. 2%."
-        )
-        zinsbindung = st.slider(
-            "Zinsbindung (Jahre)",
-            min_value=5, max_value=30, value=10,
-            help="So lange garantiert dir die Bank den Zinssatz. Danach wird neu verhandelt (Risiko steigender Zinsen!)."
-        )
+        zinssatz = st.slider("Zinssatz pro Jahr (%)", 0.5, 10.0, 3.2, 0.1, help="Die 'Gebühr' der Bank für das Leihen des Geldes. Aktuell sind ca. 3.5% - 4.5% üblich.")
+        tilgung = st.slider("Anfängliche Tilgung (%)", 1.0, 10.0, 2.0, 0.1, help="Der Teil deiner Rate, der den Schuldenberg tatsächlich verkleinert. Empfohlen sind mind. 2%.")
+        zinsbindung = st.slider("Zinsbindung (Jahre)", 5, 30, 10, help="So lange garantiert dir die Bank den Zinssatz. Danach wird neu verhandelt (Risiko steigender Zinsen!).")
 
-    # --- Miete & Kosten ---
+    # --- 4. Miete & Kosten ---
     with st.sidebar.expander("4. Miete & Ausgaben", expanded=False):
         st.caption("Einnahmen und laufende Kosten")
-        mieteinnahmen_pm = st.number_input(
-            "Monatliche Kaltmiete (€)",
-            min_value=0.0, value=2116.0, step=50.0,
-            help="Die Miete, die du bekommst (ohne Nebenkosten)."
-        )
-        mietsteigerung_pa = st.slider(
-            "Jährliche Mietsteigerung (%)",
-            min_value=0.0, max_value=5.0, value=3.0, step=0.1,
-            help="Um wie viel Prozent erhöhst du die Miete jährlich? (Inflationsausgleich)"
-        )
-        instandhaltung_pa = st.number_input(
-            "Rücklage Instandhaltung/Jahr (€)",
-            min_value=0.0, value=4000.0, step=100.0,
-            help="Geld, das du für Reparaturen (Dach, Heizung, etc.) zurücklegen solltest. Faustformel: 10-15€ pro m² Wohnfläche im Jahr."
-        )
-        mietausfall_pa = st.slider(
-            "Risiko Mietausfall (%)",
-            min_value=0.0, max_value=10.0, value=2.0, step=0.5,
-            help="Kalkuliere ein, dass die Wohnung mal leer steht oder Mieter nicht zahlen. 2% entspricht ca. 1 Woche Leerstand pro Jahr."
-        )
-        kostensteigerung_pa = st.slider(
-            "Kostensteigerung pro Jahr (%)",
-            min_value=0.0, max_value=5.0, value=2.0, step=0.1,
-            help="Handwerker und Material werden teurer. Wie stark steigen deine Instandhaltungskosten?"
-        )
-        wertsteigerung_pa = st.slider(
-            "Wertsteigerung Immobilie (%)",
-            min_value=0.0, max_value=10.0, value=2.0, step=0.1,
-            help="Gewinnt das Haus an Wert? Historisch oft 1-3%, aber keine Garantie!"
-        )
+        mieteinnahmen_pm = st.number_input("Monatliche Kaltmiete (€)", value=2116.0, step=50.0, help="Die Miete, die du bekommst (ohne Nebenkosten).")
+        mietsteigerung_pa = st.slider("Jährliche Mietsteigerung (%)", 0.0, 5.0, 3.0, 0.1, help="Um wie viel Prozent erhöhst du die Miete jährlich? (Inflationsausgleich)")
+        instandhaltung_pa = st.number_input("Rücklage Instandhaltung/Jahr (€)", value=4000.0, step=100.0, help="Geld, das du für Reparaturen (Dach, Heizung, etc.) zurücklegen solltest. Faustformel: 10-15€ pro m² Wohnfläche im Jahr.")
+        mietausfall_pa = st.slider("Risiko Mietausfall (%)", 0.0, 10.0, 2.0, 0.5, help="Kalkuliere ein, dass die Wohnung mal leer steht oder Mieter nicht zahlen. 2% entspricht ca. 1 Woche Leerstand pro Jahr.")
+        kostensteigerung_pa = st.slider("Kostensteigerung pro Jahr (%)", 0.0, 5.0, 2.0, 0.1, help="Handwerker und Material werden teurer. Wie stark steigen deine Instandhaltungskosten?")
+        wertsteigerung_pa = st.slider("Wertsteigerung Immobilie (%)", 0.0, 10.0, 2.0, 0.1, help="Gewinnt das Haus an Wert? Historisch oft 1-3%, aber keine Garantie!")
 
-    # --- Steuer ---
-    with st.sidebar.expander("5. Einkommen & Steuer", expanded=True):
-        st.caption("Deine Steuersituation beeinflusst die Rendite stark.")
-        st.markdown("### Standard Einkommen (zu versteuern)")
-        std_einkommen_mann = st.number_input("Einkommen Person A (Standard) €", value=71000, step=1000)
-        std_einkommen_frau = st.number_input("Einkommen Person B (Standard) €", value=80000, step=1000)
+    # --- 5. Steuer ---
+    with st.sidebar.expander("5. Einkommen & Steuer (2026)", expanded=True):
+        st.caption("Einkommen für Zusammenveranlagung (Ehegattensplitting)")
+        std_einkommen_mann = st.number_input("Brutto-Einkommen Person A (Standard) €", value=71000, step=1000, help="Zu versteuerndes Jahreseinkommen Person A.")
+        std_einkommen_frau = st.number_input("Brutto-Einkommen Person B (Standard) €", value=80000, step=1000, help="Zu versteuerndes Jahreseinkommen Person B.")
         st.info(f"Summe Standard: {std_einkommen_mann + std_einkommen_frau:,.2f} €")
         
-        st.markdown("### Sonderzeitraum (optional)")
-        nutze_sonderzeitraum = st.checkbox("Sonderzeitraum aktivieren (z.B. Elternzeit/Teilzeit)", value=False)
-        
+        st.markdown("### Sonderzeitraum")
+        nutze_sonderzeitraum = st.checkbox("Sonderzeitraum aktivieren", value=False, help="Z.B. für Elternzeit oder Teilzeit.")
         if nutze_sonderzeitraum:
             sonder_jahre = st.slider("Zeitraum (Jahre)", 1, 40, (3, 7))
             sonder_einkommen_mann = st.number_input("Einkommen Person A (Sonder) €", value=71000, step=1000)
@@ -140,68 +105,45 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
             sonder_einkommen_mann = 0
             sonder_einkommen_frau = 0
 
-    # --- Exit Szenario ---
-    with st.sidebar.expander("6. Exit-Szenario (Verkauf)", expanded=False):
+    # --- 6. Exit ---
+    with st.sidebar.expander("6. Exit-Szenario", expanded=False):
         st.caption("Parameter für den Fall eines vorzeitigen Verkaufs")
-        marktzins_verkauf = st.slider(
-            "Angenommener Marktzins bei Verkauf (%)",
-            min_value=0.0, max_value=10.0, value=1.5, step=0.1,
-            help="Wird benötigt, um die Vorfälligkeitsentschädigung zu schätzen. Ist der Marktzins niedriger als dein Vertragszins, verlangt die Bank eine Entschädigung."
-        )
-        verkaufskosten_prozent = st.slider(
-            "Verkaufskosten (Makler, Notar etc.) (%)",
-            min_value=0.0, max_value=10.0, value=3.0, step=0.5,
-            help="Kosten, die beim Verkauf vom Erlös abgehen."
-        )
+        marktzins_verkauf = st.slider("Marktzins bei Verkauf (%)", 0.0, 10.0, 1.5, 0.1, help="Wird benötigt, um die Vorfälligkeitsentschädigung zu schätzen. Ist der Marktzins niedriger als dein Vertragszins, verlangt die Bank eine Entschädigung.")
+        verkaufskosten_prozent = st.slider("Verkaufskosten (%)", 0.0, 10.0, 3.0, 0.5, help="Kosten, die beim Verkauf vom Erlös abgehen.")
 
 # --- Szenario B: ETF-Sparplan ---
 else:
+    # ETF Inputs (vereinfacht, da Fokus auf Immo-Update lag)
+    with st.sidebar.expander("1. Startkapital", expanded=True):
+        st.caption("Verfügbares Vermögen für beide Szenarien")
+        eigenkapital_kaeufer = st.number_input("Startkapital (€)", value=100000.0, help="Geld, das du auf dem Konto hast und für den (Haus/ETF)Kauf verwendest. Je mehr Eigenkapital, desto weniger Zinsen zahlst du (Haus).")
+        geschenk = st.number_input("Schenkung (€)", value=440000.0, help="Falls dir die Verkäufer einen Teil des Kaufpreises schenken, reduziert das deinen Kreditbedarf. Achtung: Schenkungssteuerfreibeträge beachten!")
+        startkapital_gesamt = eigenkapital_kaeufer + geschenk
+
     with st.sidebar.expander("2. ETF-Parameter", expanded=True):
         st.caption("Annahmen für die Alternativanlage")
-        etf_rendite = st.slider(
-            "Erwartete Rendite pro Jahr (%)", 
-            min_value=0.0, max_value=15.0, value=7.0, step=0.1,
-            help="Langfristiger Durchschnitt des MSCI World liegt oft bei ca. 7-8%."
-        )
-        etf_sparrate = st.number_input(
-            "Monatliche Sparrate (€)", 
-            min_value=0.0, value=1000.0, step=50.0,
-            help="Wie viel Geld steckst du jeden Monat zusätzlich in den ETF? (Vergleichbar mit dem Eigenaufwand beim Hauskauf)"
-        )
-        etf_steuer = st.slider(
-            "Steuersatz auf Gewinne (%)", 
-            min_value=0.0, max_value=30.0, value=18.5, step=0.5,
-            help="Kapitalertragsteuer (25%) + Soli. Bei Aktienfonds oft Teilfreistellung (30% steuerfrei), daher effektiv ca. 18.5%."
-        )
-        laufzeit_etf = st.slider(
-            "Laufzeit (Jahre)", 
-            min_value=5, max_value=60, value=30,
-            help="Wie lange soll der Sparplan laufen?"
-        )
+        etf_rendite = st.slider("Rendite (%)", 0.0, 15.0, 7.0, 0.1, help="Langfristiger Durchschnitt des MSCI World liegt oft bei ca. 7-8%.")
+        etf_sparrate = st.number_input("Sparrate (€)", value=1000.0, help="Wie viel Geld steckst du jeden Monat zusätzlich in den ETF? (Vergleichbar mit dem Eigenaufwand beim Hauskauf)")
+        etf_steuer = st.slider("Steuersatz (%)", 0.0, 30.0, 18.5, 0.5, help="Kapitalertragsteuer (25%) + Soli. Bei Aktienfonds oft Teilfreistellung (30% steuerfrei), daher effektiv ca. 18.5%.")
+        laufzeit_etf = st.slider("Laufzeit (Jahre)", 5, 60, 30, help="Wie lange soll der Sparplan laufen?")
 
-# --- Inflation (Common) ---
-with st.sidebar.expander("Inflation & Sonstiges", expanded=False):
+# --- Inflation ---
+with st.sidebar.expander("Inflation", expanded=False):
     st.caption("Annahme für die Geldentwertung")
-    inflationsrate = st.slider(
-        "Angenommene Inflation pro Jahr (%)",
-        min_value=0.0, max_value=10.0, value=2.0, step=0.1,
-        help="Um diesen Wert verringert sich die Kaufkraft des Geldes jährlich. Wenn du die 'Inflationsbereinigung' aktivierst, werden alle zukünftigen Werte auf heutige Kaufkraft umgerechnet."
-    )
+    inflationsrate = st.slider("Inflation (%)", 0.0, 10.0, 2.0, 0.1, help="Um diesen Wert verringert sich die Kaufkraft des Geldes jährlich. Wenn du die 'Inflationsbereinigung' aktivierst, werden alle zukünftigen Werte auf heutige Kaufkraft umgerechnet.")
 
-# --- Formel-Datenbank (Definition) ---
+# --- Formel-Datenbank (Double Backslash Fix) ---
 formeln_db = [
     {"Name": "AfA (Absetzung für Abnutzung)", "Kategorie": "Immobilie", "Beschreibung": "Jährlicher steuerlicher Abschreibungsbetrag auf das Gebäude.", "Formel": r"AfA = (Kaufpreis \times (1 - \frac{Grundstücksanteil}{100})) \times 0.02"},
-    {"Name": "Brutto-Mietrendite", "Kategorie": "Immobilie", "Beschreibung": "Verhältnis der Jahresmiete zum Kaufpreis. Indikator für Rentabilität.", "Formel": r"Rendite = \frac{Monatsmiete \times 12}{Kaufpreis} \times 100"},
-    {"Name": "Cashflow (nach Steuer)", "Kategorie": "Immobilie", "Beschreibung": "Der tatsächliche monatliche/jährliche Geldfluss nach allen Einnahmen und Ausgaben.", "Formel": r"CF = Miete - (Zins + Tilgung) - Instandhaltung - Mietausfall + Steuerersparnis"},
-    {"Name": "Eigenkapitalquote", "Kategorie": "Immobilie", "Beschreibung": "Anteil des Eigenkapitals am Gesamtkaufpreis.", "Formel": r"EK_{Quote} = \frac{Eigenkapital + Schenkung}{Kaufpreis} \times 100"},
-    {"Name": "Kaufnebenkosten", "Kategorie": "Immobilie", "Beschreibung": "Zusatzkosten beim Kauf (Notar, Grundbuch, Steuer).", "Formel": r"Kosten = Kaufpreis \times \frac{Notar\% + Grunderwerbsteuer\%}{100}"},
-    {"Name": "Kaufpreisfaktor", "Kategorie": "Immobilie", "Beschreibung": "Wie viele Jahresmieten kostet das Haus?", "Formel": r"Faktor = \frac{Kaufpreis}{Monatsmiete \times 12}"},
-    {"Name": "Kreditbetrag", "Kategorie": "Immobilie", "Beschreibung": "Der tatsächlich benötigte Kredit bei der Bank.", "Formel": r"Kredit = (Kaufpreis + Kaufnebenkosten) - (Eigenkapital + Schenkung)"},
-    {"Name": "Monatliche Rate (Annuität)", "Kategorie": "Immobilie", "Beschreibung": "Die monatliche Zahlung an die Bank.", "Formel": r"Rate = Kreditbetrag \times \frac{Zins\% + Tilgung\%}{100} \times \frac{1}{12}"},
-    {"Name": "Steuerersparnis", "Kategorie": "Immobilie", "Beschreibung": "Rückerstattung vom Finanzamt durch Verluste aus Vermietung.", "Formel": r"Ersparnis = -(Miete - Zinsen - AfA - Instandhaltung) \times Steuersatz"},
-    {"Name": "Vorfälligkeitsentschädigung", "Kategorie": "Immobilie", "Beschreibung": "Strafe bei vorzeitigem Kreditausstieg (vereinfacht).", "Formel": r"VFE \approx Restschuld \times (Vertragszins - Marktzins) \times Restlaufzeit"},
-    {"Name": "Zinseszins (ETF)", "Kategorie": "ETF", "Beschreibung": "Exponentielles Wachstum durch Wiederanlage von Gewinnen.", "Formel": r"K_n = K_0 \times (1 + \frac{p}{100})^n + Sparrate \times \dots"},
-    {"Name": "ETF Steuer", "Kategorie": "ETF", "Beschreibung": "Kapitalertragsteuer auf den Gewinn.", "Formel": r"Steuer = (Endwert - Einzahlungen) \times \frac{Steuersatz}{100}"},
+    {"Name": "Brutto-Mietrendite", "Kategorie": "Immobilie", "Beschreibung": "Verhältnis der Jahresmiete zum Kaufpreis.", "Formel": r"Rendite = \frac{Monatsmiete \times 12}{Kaufpreis} \times 100"},
+    {"Name": "Cashflow (nach Steuer)", "Kategorie": "Immobilie", "Beschreibung": "Geldfluss nach allen Einnahmen und Ausgaben.", "Formel": r"CF = Miete - (Zins + Tilgung) - Instandhaltung - Mietausfall + Steuerersparnis"},
+    {"Name": "Eigenkapitalquote", "Kategorie": "Immobilie", "Beschreibung": "Anteil des Eigenkapitals.", "Formel": r"EK_{Quote} = \frac{Eigenkapital}{Kaufpreis} \times 100"},
+    {"Name": "Kaufnebenkosten", "Kategorie": "Immobilie", "Beschreibung": "Zusatzkosten beim Kauf.", "Formel": r"Kosten = Kaufpreis \times \frac{Notar\% + Grunderwerbsteuer\%}{100}"},
+    {"Name": "Kaufpreisfaktor", "Kategorie": "Immobilie", "Beschreibung": "Jahresmieten bis Kaufpreis bezahlt.", "Formel": r"Faktor = \frac{Kaufpreis}{Monatsmiete \times 12}"},
+    {"Name": "Kreditbetrag", "Kategorie": "Immobilie", "Beschreibung": "Finanzierungsbedarf.", "Formel": r"Kredit = (Kaufpreis + Nebenkosten) - Eigenkapital"},
+    {"Name": "Monatliche Rate", "Kategorie": "Immobilie", "Beschreibung": "Annuität an die Bank.", "Formel": r"Rate = Kreditbetrag \times \frac{Zins\% + Tilgung\%}{100} \times \frac{1}{12}"},
+    {"Name": "Steuerersparnis", "Kategorie": "Immobilie", "Beschreibung": "Differenz Steuerlast mit vs. ohne Immobilie.", "Formel": r"\Delta Steuer = Steuer_{ohne} - Steuer_{mit}"},
+    {"Name": "Zugewinn (Scheidung)", "Kategorie": "Risiko", "Beschreibung": "Wertzuwachs während der Ehe (vereinfacht).", "Formel": r"Zugewinn = (Wert_{aktuell} - Schulden_{aktuell}) - (Wert_{Start} - Schulden_{Start})"},
 ]
 formeln_db = sorted(formeln_db, key=lambda x: x["Name"])
 
@@ -210,19 +152,41 @@ formeln_db = sorted(formeln_db, key=lambda x: x["Name"])
 # LOGIK: IMMOBILIENKAUF
 # ==============================================================================
 if szenario == "Immobilienkauf (innerhalb Familie)":
-    # --- Hilfsfunktion: Grenzsteuersatz ---
-    def get_grenzsteuersatz(zve_gemeinsam):
-        zve = zve_gemeinsam / 2
-        grundfreibetrag = 12500
-        eckwert_zone1 = 18000
-        eckwert_42 = 70000
-        eckwert_45 = 285000
+    
+    # --- Steuerfunktion (Grundtarif vs Splittingtarif) ---
+    def berechne_einkommensteuer(zve):
+        # Vereinfachte Formel EStG 2024/2025 (Progressionszonen)
+        # Wir nutzen den Grundtarif für Einzelpersonen, Splitting = 2 * Grundtarif(zve/2)
+        import math
+        zve = max(0, zve)
+        
+        # Zonen (ca. Werte 2024)
+        grundfreibetrag = 11604
+        zone1_limit = 17005
+        zone2_limit = 66760
+        zone3_limit = 277825
+        
+        st = 0.0
+        if zve <= grundfreibetrag:
+            st = 0.0
+        elif zve <= zone1_limit:
+            y = (zve - grundfreibetrag) / 10000
+            st = (922.98 * y + 1400) * y
+        elif zve <= zone2_limit:
+            z = (zve - zone1_limit) / 10000
+            st = (181.19 * z + 2397) * z + 1082.7
+        elif zve <= zone3_limit:
+            st = 0.42 * zve - 10633.76
+        else:
+            st = 0.45 * zve - 18968.51
+            
+        return math.floor(st)
 
-        if zve <= grundfreibetrag: return 0.0
-        elif zve <= eckwert_zone1: return 0.14 + (zve - grundfreibetrag) / (eckwert_zone1 - grundfreibetrag) * (0.24 - 0.14)
-        elif zve <= eckwert_42: return 0.24 + (zve - eckwert_zone1) / (eckwert_42 - eckwert_zone1) * (0.42 - 0.24)
-        elif zve <= eckwert_45: return 0.42
-        else: return 0.45
+    def get_steuerlast_zusammen(einkommen_a, einkommen_b):
+        # Zusammenveranlagung: Summe bilden, halbieren, Grundtarif, verdoppeln
+        zve_gesamt = einkommen_a + einkommen_b
+        steuer = 2 * berechne_einkommensteuer(zve_gesamt / 2)
+        return steuer
 
     # --- Berechnung mit Nebenkosten ---
     nebenkosten_betrag = kaufpreis * ((notar_grundbuch_prozent + grunderwerbsteuer_prozent) / 100)
@@ -243,7 +207,11 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
     aktuelle_jahresmiete = mieteinnahmen_pm * 12
     aktuelle_instandhaltung = instandhaltung_pa
     aktueller_hauswert = kaufpreis
-    vermoegen_vorjahr = kaufpreis - kreditbetrag # Startvermögen (Haus - Schulden)
+    
+    # Startvermögen für Zugewinn-Berechnung
+    anfangs_vermoegen_netto = startkapital_gesamt # Das was man eingebracht hat
+    vermoegen_vorjahr = kaufpreis - kreditbetrag # Initialisierung für Zuwachs-Berechnung
+    
     kumulierte_afa = 0.0
     jahr = 0
     max_laufzeit = 80
@@ -251,26 +219,54 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
     while restschuld > 1.0 and jahr < max_laufzeit:
         jahr += 1
         
+        # 1. Einkommen bestimmen
         if nutze_sonderzeitraum and sonder_jahre[0] <= jahr <= sonder_jahre[1]:
-            zve_aktuell = sonder_einkommen_mann + sonder_einkommen_frau
+            ek_a = sonder_einkommen_mann
+            ek_b = sonder_einkommen_frau
         else:
-            zve_aktuell = std_einkommen_mann + std_einkommen_frau
+            ek_a = std_einkommen_mann
+            ek_b = std_einkommen_frau
             
-        aktueller_steuersatz = get_grenzsteuersatz(zve_aktuell)
+        # 2. Immobilien-Ergebnis (V+V) berechnen
         zinsanteil_jahr = restschuld * (zinssatz / 100)
         tilgungsanteil_jahr = jaehrliche_rate - zinsanteil_jahr
-        
         if tilgungsanteil_jahr > restschuld:
             tilgungsanteil_jahr = restschuld
             jaehrliche_rate_effektiv = zinsanteil_jahr + tilgungsanteil_jahr
         else:
             jaehrliche_rate_effektiv = jaehrliche_rate
-
+            
         restschuld -= tilgungsanteil_jahr
-        werbungskosten = zinsanteil_jahr + jaehrliche_afa + aktuelle_instandhaltung
-        zu_versteuernde_einnahmen = aktuelle_jahresmiete - werbungskosten
-        steuerersparnis = -zu_versteuernde_einnahmen * aktueller_steuersatz
         
+        # Werbungskosten & Ergebnis V+V
+        werbungskosten = zinsanteil_jahr + jaehrliche_afa + aktuelle_instandhaltung
+        ergebnis_vv = aktuelle_jahresmiete - werbungskosten # Negativ = Verlust
+        
+        # 3. Steuerberechnung mit Eigentümer-Logik
+        # Steuer OHNE Immobilie (Referenz)
+        steuer_ohne = get_steuerlast_zusammen(ek_a, ek_b)
+        
+        # Steuer MIT Immobilie
+        if eigentums_modus == "Gemeinschaftseigentum (50/50)":
+            # Verlust/Gewinn wird 50/50 geteilt
+            ek_a_mit = ek_a + (ergebnis_vv / 2)
+            ek_b_mit = ek_b + (ergebnis_vv / 2)
+        else:
+            # Alleineigentum
+            if "Person A" in eigentuemer:
+                ek_a_mit = ek_a + ergebnis_vv
+                ek_b_mit = ek_b
+            else:
+                ek_a_mit = ek_a
+                ek_b_mit = ek_b + ergebnis_vv
+        
+        steuer_mit = get_steuerlast_zusammen(ek_a_mit, ek_b_mit)
+        steuerersparnis = steuer_ohne - steuer_mit
+        
+        # Grenzsteuersatz (informativ)
+        grenzsteuersatz = (steuerersparnis / abs(ergebnis_vv)) if ergebnis_vv != 0 else 0.0
+
+        # 4. Cashflow
         mietausfall_betrag = aktuelle_jahresmiete * (mietausfall_pa / 100)
         cashflow_vor_steuer = aktuelle_jahresmiete - jaehrliche_rate_effektiv - aktuelle_instandhaltung - mietausfall_betrag
         cashflow_nach_steuer = cashflow_vor_steuer + steuerersparnis
@@ -278,37 +274,47 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
         monatliche_gesamtkosten = (jaehrliche_rate_effektiv + aktuelle_instandhaltung + mietausfall_betrag) / 12
         monatlicher_eigenaufwand = monatliche_gesamtkosten - (aktuelle_jahresmiete / 12)
 
+        # 5. Vermögensentwicklung
         aktueller_hauswert *= (1 + wertsteigerung_pa / 100)
-        aktuelles_vermoegen = aktueller_hauswert - restschuld
-        zuwachs_vermoegen = aktuelles_vermoegen - vermoegen_vorjahr
-        vermoegen_vorjahr = aktuelles_vermoegen
-        kumulierte_afa += jaehrliche_afa
+        aktuelles_vermoegen_netto = aktueller_hauswert - restschuld
+        
+        # 6. Exit: Scheidung (Zugewinn)
+        # Zugewinn = Endvermögen - Anfangsvermögen (vereinfacht, ohne Inflation des Anfangsvermögens)
+        zugewinn_gesamt = aktuelles_vermoegen_netto - anfangs_vermoegen_netto
+        
+        ausgleichszahlung_scheidung = 0.0
+        if eigentums_modus == "Alleineigentum (Eine Person)":
+            # Wenn einer alles besitzt, muss er dem anderen die Hälfte des Zugewinns geben (Zugewinngemeinschaft)
+            if zugewinn_gesamt > 0:
+                ausgleichszahlung_scheidung = zugewinn_gesamt / 2
+        else:
+            # Bei 50/50 Eigentum gehört jedem schon die Hälfte, keine Ausgleichszahlung auf die Substanz nötig
+            # (Realität: Haus muss oft verkauft werden, um das Geld zu teilen)
+            ausgleichszahlung_scheidung = 0.0 
 
-        # --- Exit / Verkauf Berechnung ---
+        # 7. Exit: Verkauf
         vorfaelligkeitsentschaedigung = 0.0
         if jahr < zinsbindung:
             restlaufzeit = zinsbindung - jahr
-            # Vereinfachte Schätzung: Zinsdifferenz * Restschuld * Restlaufzeit
-            # Wenn Marktzins > Vertragszins, dann meist 0 Entschädigung
             zinsdifferenz = max(0, zinssatz - marktzins_verkauf)
             vorfaelligkeitsentschaedigung = restschuld * (zinsdifferenz / 100) * restlaufzeit
         
         verkaufskosten = aktueller_hauswert * (verkaufskosten_prozent / 100)
-        
-        # Spekulationssteuer (nur wenn < 10 Jahre)
         spekulationssteuer = 0.0
         if jahr < 10:
             buchwert = kaufpreis - kumulierte_afa
             veraeusserungsgewinn = (aktueller_hauswert - verkaufskosten) - buchwert
             if veraeusserungsgewinn > 0:
-                spekulationssteuer = veraeusserungsgewinn * aktueller_steuersatz
+                # Steuersatz auf den Gewinn anwenden
+                # Vereinfacht: Wir nehmen den Grenzsteuersatz des Jahres
+                spekulationssteuer = veraeusserungsgewinn * grenzsteuersatz
         
         netto_erloes_verkauf = aktueller_hauswert - restschuld - vorfaelligkeitsentschaedigung - verkaufskosten - spekulationssteuer
 
         jahres_daten.append({
             "Jahr": int(jahr),
-            "Einkommen (zvE)": zve_aktuell,
-            "Grenzsteuersatz (%)": round(aktueller_steuersatz * 100, 1),
+            "Einkommen (zvE)": ek_a + ek_b,
+            "Grenzsteuersatz (%)": round(grenzsteuersatz * 100, 1),
             "Restschuld": max(0, restschuld),
             "Mieteinnahmen": aktuelle_jahresmiete,
             "Instandhaltung": aktuelle_instandhaltung,
@@ -321,14 +327,17 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
             "Steuerersparnis": steuerersparnis,
             "Cashflow": cashflow_nach_steuer,
             "Hauswert": aktueller_hauswert,
-            "Vermögen": aktuelles_vermoegen,
-            "Zuwachs Vermögen": zuwachs_vermoegen,
+            "Vermögen": aktuelles_vermoegen_netto,
+            "Zuwachs Vermögen": aktuelles_vermoegen_netto - vermoegen_vorjahr,
             "Vorfälligkeitsentschädigung (Exit)": vorfaelligkeitsentschaedigung,
-            "Netto-Erlös bei Verkauf (Exit)": netto_erloes_verkauf
+            "Netto-Erlös bei Verkauf (Exit)": netto_erloes_verkauf,
+            "Scheidung: Ausgleichszahlung": ausgleichszahlung_scheidung
         })
         
+        vermoegen_vorjahr = aktuelles_vermoegen_netto
         aktuelle_jahresmiete *= (1 + mietsteigerung_pa / 100)
         aktuelle_instandhaltung *= (1 + kostensteigerung_pa / 100)
+        kumulierte_afa += jaehrliche_afa
 
     df_projektion = pd.DataFrame(jahres_daten)
     
@@ -419,31 +428,44 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
             if show_inflation:
                 st.caption(f"⚠️ Hinweis: Die Analyse basiert auf den inflationsbereinigten Werten ({inflationsrate}% p.a.), außer bei Kredit-Nennwerten.")
 
-            # --- 1. Kennzahlen Berechnung ---
-            ek_quote = (startkapital_gesamt / kaufpreis) * 100 if kaufpreis > 0 else 0
-            brutto_mietrendite = (mieteinnahmen_pm * 12 / kaufpreis) * 100 if kaufpreis > 0 else 0
-            kaufpreisfaktor = kaufpreis / (mieteinnahmen_pm * 12) if mieteinnahmen_pm > 0 else 0
-            
-            # --- 2. Finanzierungs-Struktur (Eigenkapital) ---
-            with st.expander("1. Finanzierungs-Struktur & Eigenkapital", expanded=True):
-                col_a, col_b = st.columns([1, 2])
-                with col_a:
-                    st.metric("Eigenkapitalquote", f"{ek_quote:.1f} %", help="Berechnung: (Eigenkapital + Schenkung) / Kaufpreis * 100. Diese Kennzahl zeigt, wie viel Prozent des Kaufpreises Sie ohne Kredit finanzieren. Je höher die Quote, desto besser die Kreditkonditionen und desto geringer das Risiko.")
-                    st.metric("Kaufnebenkosten", f"{nebenkosten_betrag:,.2f} €", help=f"Notar/Grundbuch ({notar_grundbuch_prozent}%) + Grunderwerbsteuer ({grunderwerbsteuer_prozent}%). Diese Kosten sind 'weg' und erhöhen den Wert der Immobilie nicht.")
-                with col_b:
-                    if ek_quote < 10:
-                        st.error("🔴 **Kritisches Risiko (<10%):** Banken verlangen massive Risikoaufschläge. In 2026 ist eine Finanzierung ohne volle Nebenkostenübernahme (ca. 10-12%) aus Eigenmitteln fast unmöglich.")
-                    elif ek_quote < 20:
-                        st.warning("🟠 **Erhöhtes Risiko (10-20%):** Das Minimum für solide Konditionen. Versuche, zumindest die Kaufnebenkosten komplett selbst zu tragen, um den Zinssatz zu drücken.")
-                    elif ek_quote < 30:
-                        st.success("🟢 **Solide Basis (20-30%):** Du erhältst gute Zinsen. Du bist gegen kurzfristige Wertschwankungen (z.B. 10% Preisrückgang) abgesichert.")
-                    else:
-                        st.success("🟢 **Exzellente Sicherheit (>30%):** Bestkonditionen! Überlege strategisch: Lohnt sich mehr Eigenkapital, oder ist die Rendite am Kapitalmarkt (ETF) höher als der Kreditzins? (Leverage-Effekt).")
+            # --- 1. Eigentümer & Steuer-Effekt ---
+            with st.expander("1. Eigentumsverhältnisse & Steuer-Effekt (AfA)", expanded=True):
+                st.info(f"**Modus:** {eigentums_modus}")
+                
+                if eigentums_modus == "Alleineigentum (Eine Person)":
+                    st.write(f"Eigentümer ist **{eigentuemer}**. Die Mieteinnahmen und die AfA werden steuerlich dieser Person zugeordnet.")
+                    st.markdown("""
+                    **Steuer-Mythos:** "Der Besserverdiener muss die Immobilie kaufen, um mehr Steuern zu sparen."
+                    *   **Realität (Zusammenveranlagung):** In Deutschland werden Ehepartner gemeinsam veranlagt (Splittingtarif). Es werden erst alle Einkünfte addiert `(Einkommen A + Einkommen B + Miete - AfA)` und dann versteuert.
+                    *   **Ergebnis:** Es ist für die *laufende* Steuerlast rechnerisch **egal**, wem das Haus gehört. Die Steuerersparnis ist identisch.
+                    *   **Aber:** Bei Scheidung oder Erbe macht es einen riesigen Unterschied (siehe Punkt 4).
+                    """)
+                else:
+                    st.write("Beide Partner sind zu 50% Eigentümer. Miete und AfA werden geteilt.")
+                    st.success("✅ **Sicherheit:** Dies ist die fairste Lösung. Beide bauen Vermögen auf. Im Scheidungsfall gehört jedem die Hälfte, es muss kein riesiger Zugewinnausgleich gezahlt werden (nur das Haus muss evtl. verkauft werden).")
+
+            # --- 2. Finanzierung ---
+            with st.expander("2. Finanzierung & Eigenkapital", expanded=True):
+                ek_quote = (startkapital_gesamt / kaufpreis) * 100 if kaufpreis > 0 else 0
+                st.metric("Eigenkapitalquote", f"{ek_quote:.1f} %", help="Berechnung: (Eigenkapital + Schenkung) / Kaufpreis * 100. Diese Kennzahl zeigt, wie viel Prozent des Kaufpreises Sie ohne Kredit finanzieren. Je höher die Quote, desto besser die Kreditkonditionen und desto geringer das Risiko.")
+                st.metric("Kaufnebenkosten (verloren)", f"{nebenkosten_betrag:,.2f} €", help=f"Notar/Grundbuch ({notar_grundbuch_prozent}%) + Grunderwerbsteuer ({grunderwerbsteuer_prozent}%). Diese Kosten sind 'weg' und erhöhen den Wert der Immobilie nicht.")
+                
+                if ek_quote < 10:
+                    st.error("🔴 **Kritisches Risiko (<10%):** Banken verlangen massive Risikoaufschläge. In 2026 ist eine Finanzierung ohne volle Nebenkostenübernahme (ca. 10-12%) aus Eigenmitteln fast unmöglich.")
+                elif ek_quote < 20:
+                    st.warning("🟠 **Erhöhtes Risiko (10-20%):** Das Minimum für solide Konditionen. Versuche, zumindest die Kaufnebenkosten komplett selbst zu tragen, um den Zinssatz zu drücken.")
+                elif ek_quote < 30:
+                    st.success("🟢 **Solide Basis (20-30%):** Du erhältst gute Zinsen. Du bist gegen kurzfristige Wertschwankungen (z.B. 10% Preisrückgang) abgesichert.")
+                else:
+                    st.success("🟢 **Exzellente Sicherheit (>30%):** Bestkonditionen! Überlege strategisch: Lohnt sich mehr Eigenkapital, oder ist die Rendite am Kapitalmarkt (ETF) höher als der Kreditzins? (Leverage-Effekt).")
                 
                 st.info("💡 **Experten-Tipp:** Banken finanzieren ungern über 100% des Beleihungswertes. Kaufnebenkosten (Notar, Steuer, Makler) sind sofort weg und sollten immer 'Cash' vorhanden sein.")
 
             # --- 3. Rentabilität & Marktpreis ---
-            with st.expander("2. Rentabilität & Kaufpreis-Check", expanded=True):
+            with st.expander("3. Rentabilität & Kaufpreis-Check", expanded=True):
+                brutto_mietrendite = (mieteinnahmen_pm * 12 / kaufpreis) * 100 if kaufpreis > 0 else 0
+                kaufpreisfaktor = kaufpreis / (mieteinnahmen_pm * 12) if mieteinnahmen_pm > 0 else 0
+                
                 col_a, col_b = st.columns([1, 2])
                 with col_a:
                     st.metric("Brutto-Mietrendite", f"{brutto_mietrendite:.2f} %", help="Berechnung: (Monatliche Kaltmiete * 12) / Kaufpreis * 100. Sie gibt das Verhältnis der Mieteinnahmen zum Kaufpreis an. Eine hohe Rendite ist wünschenswert, sie sollte idealerweise über dem Kreditzins liegen.")
@@ -466,7 +488,7 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
                         st.success("🟢 **Günstiger Einkauf (Faktor < 25):** Hier ist rechnerisch ein positiver Cashflow möglich. Prüfe aber: Warum ist es so günstig? (Lage, Bausubstanz, GEG-Sanierungspflicht?)")
 
             # --- 4. Cashflow & Tragbarkeit ---
-            with st.expander("3. Cashflow & Monatliche Belastung", expanded=True):
+            with st.expander("4. Cashflow & Monatliche Belastung", expanded=True):
                 avg_cf = df_display['Cashflow'].mean() if not df_display.empty else 0
                 if avg_cf < 0:
                     st.error(f"🔴 **Unterdeckung:** Du musst monatlich ca. **{abs(avg_cf)/12:,.0f} €** zuschießen (nach Steuern!).")
@@ -485,7 +507,7 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
                     st.info("ℹ️ **Hohe Tilgung (>3%):** Sehr gut für die Zinssicherheit, aber bindet viel Liquidität. Prüfe, ob du Sondertilgungs-Optionen hast, statt die Rate fix so hoch zu setzen.")
 
             # --- 5. Zinsänderungsrisiko (Szenario-Rechnung) ---
-            with st.expander("4. Zinsänderungsrisiko (Der 'Zins-Hammer')", expanded=True):
+            with st.expander("5. Zinsänderungsrisiko (Der 'Zins-Hammer')", expanded=True):
                 # Wir nutzen df_projektion (nominal), da Schulden nominal sind
                 row_zinsbindung = df_projektion[df_projektion['Jahr'] == zinsbindung] if not df_projektion.empty else pd.DataFrame()
                 if not row_zinsbindung.empty:
@@ -515,6 +537,26 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
                 else:
                     st.success("Du bist bis dahin schuldenfrei (oder fast). Kein Zinsrisiko.")
 
+            # --- 6. Exit: Scheidung ---
+            with st.expander("6. Exit-Strategie: Scheidung (Der 'Rosenkrieg')", expanded=True):
+                st.markdown("Was passiert mit der Immobilie, wenn die Ehe scheitert?")
+                
+                row_10y = df_display[df_display['Jahr'] == 10]
+                if not row_10y.empty:
+                    ausgleich = row_10y.iloc[0]['Scheidung: Ausgleichszahlung']
+                    vermoegen = row_10y.iloc[0]['Vermögen']
+                else:
+                    ausgleich = 0
+                    vermoegen = 0
+                
+                if eigentums_modus == "Alleineigentum (Eine Person)":
+                    st.warning(f"⚠️ **Risiko für Eigentümer:** Da du Alleineigentümer bist, musst du im Scheidungsfall (Zugewinngemeinschaft) dem Partner die Hälfte des Wertzuwachses auszahlen.")
+                    st.metric("Mögliche Auszahlung an Ex-Partner (nach 10 Jahren)", f"{ausgleich:,.2f} €", help="Hälfte des Netto-Vermögenszuwachses.")
+                    if ausgleich > 50000:
+                        st.error("🔴 **Liquiditäts-Gefahr:** Könntest du diesen Betrag sofort bar auszahlen? Wenn nicht, muss das Haus zwangsverkauft werden, um den Partner auszuzahlen.")
+                else:
+                    st.success("✅ **Neutral:** Da beiden das Haus gehört, muss niemand ausgezahlt werden. Aber: Wenn ihr euch nicht einig werdet, droht die Teilungsversteigerung (Verlustgeschäft).")
+
             st.markdown("---")
 
         tab_t, tab_g, tab_f = st.tabs(["Tabelle", "Graph", "📚 Formeln"])
@@ -523,7 +565,7 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
                 "Jahr", "Einkommen (zvE)", "Grenzsteuersatz (%)", "Restschuld", "Mieteinnahmen", "Instandhaltung", "Mietausfall",
                 "Zinsanteil", "Tilgungsanteil", "Monatliche Gesamtkosten", "Monatlicher Eigenaufwand", "AfA", "Steuerersparnis",
                 "Cashflow", "Hauswert", "Vermögen", "Zuwachs Vermögen",
-                "Vorfälligkeitsentschädigung (Exit)", "Netto-Erlös bei Verkauf (Exit)"
+                "Vorfälligkeitsentschädigung (Exit)", "Netto-Erlös bei Verkauf (Exit)", "Scheidung: Ausgleichszahlung"
             ]
             format_dict = {col: "{:,.2f} €" for col in cols_to_show if col not in ["Jahr", "Grenzsteuersatz (%)"]}
             format_dict["Jahr"] = "{:.0f}"
@@ -544,29 +586,29 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
                 if val < 0: return 'background-color: #ffcdd2; color: black'
                 elif val > 0: return 'background-color: #c8e6c9; color: black'
                 return ''
-            styler.applymap(color_cashflow, subset=['Cashflow'])
+            styler.map(color_cashflow, subset=['Cashflow'])
 
             def color_growth(val):
                 if val > 0: return 'background-color: #dcedc8; color: black'
                 return ''
-            styler.applymap(color_growth, subset=['Zuwachs Vermögen'])
+            styler.map(color_growth, subset=['Zuwachs Vermögen'])
 
             def color_tax_savings(val):
                 if val > 0: return 'background-color: #e1bee7; color: black'
                 return ''
-            styler.applymap(color_tax_savings, subset=['Steuerersparnis'])
+            styler.map(color_tax_savings, subset=['Steuerersparnis'])
             
             def color_eigenaufwand(val):
                 if val > 0: return 'background-color: #ffebee; color: black'
                 elif val < 0: return 'background-color: #e8f5e9; color: black'
                 return ''
-            styler.applymap(color_eigenaufwand, subset=['Monatlicher Eigenaufwand'])
+            styler.map(color_eigenaufwand, subset=['Monatlicher Eigenaufwand'])
             
             def color_exit(val):
                 if val > 0: return 'background-color: #c8e6c9; color: black'
                 elif val < 0: return 'background-color: #ffcdd2; color: black'
                 return ''
-            styler.applymap(color_exit, subset=['Netto-Erlös bei Verkauf (Exit)'])
+            styler.map(color_exit, subset=['Netto-Erlös bei Verkauf (Exit)'])
 
             st.dataframe(styler, use_container_width=True, height=700, hide_index=True)
             
