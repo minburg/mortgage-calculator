@@ -124,6 +124,20 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
             sonder_einkommen_mann = 0
             sonder_einkommen_frau = 0
 
+    # --- Exit Szenario ---
+    with st.sidebar.expander("6. Exit-Szenario (Verkauf)", expanded=False):
+        st.caption("Parameter für den Fall eines vorzeitigen Verkaufs")
+        marktzins_verkauf = st.slider(
+            "Angenommener Marktzins bei Verkauf (%)",
+            min_value=0.0, max_value=10.0, value=1.5, step=0.1,
+            help="Wird benötigt, um die Vorfälligkeitsentschädigung zu schätzen. Ist der Marktzins niedriger als dein Vertragszins, verlangt die Bank eine Entschädigung."
+        )
+        verkaufskosten_prozent = st.slider(
+            "Verkaufskosten (Makler, Notar etc.) (%)",
+            min_value=0.0, max_value=10.0, value=3.0, step=0.5,
+            help="Kosten, die beim Verkauf vom Erlös abgehen."
+        )
+
 # --- Szenario B: ETF-Sparplan ---
 else:
     with st.sidebar.expander("2. ETF-Parameter", expanded=True):
@@ -193,6 +207,7 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
     aktuelle_instandhaltung = instandhaltung_pa
     aktueller_hauswert = kaufpreis
     vermoegen_vorjahr = kaufpreis - kreditbetrag
+    kumulierte_afa = 0.0
     jahr = 0
     max_laufzeit = 80
 
@@ -230,6 +245,28 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
         aktuelles_vermoegen = aktueller_hauswert - restschuld
         zuwachs_vermoegen = aktuelles_vermoegen - vermoegen_vorjahr
         vermoegen_vorjahr = aktuelles_vermoegen
+        kumulierte_afa += jaehrliche_afa
+
+        # --- Exit / Verkauf Berechnung ---
+        vorfaelligkeitsentschaedigung = 0.0
+        if jahr < zinsbindung:
+            restlaufzeit = zinsbindung - jahr
+            # Vereinfachte Schätzung: Zinsdifferenz * Restschuld * Restlaufzeit
+            # Wenn Marktzins > Vertragszins, dann meist 0 Entschädigung
+            zinsdifferenz = max(0, zinssatz - marktzins_verkauf)
+            vorfaelligkeitsentschaedigung = restschuld * (zinsdifferenz / 100) * restlaufzeit
+        
+        verkaufskosten = aktueller_hauswert * (verkaufskosten_prozent / 100)
+        
+        # Spekulationssteuer (nur wenn < 10 Jahre)
+        spekulationssteuer = 0.0
+        if jahr < 10:
+            buchwert = kaufpreis - kumulierte_afa
+            veraeusserungsgewinn = (aktueller_hauswert - verkaufskosten) - buchwert
+            if veraeusserungsgewinn > 0:
+                spekulationssteuer = veraeusserungsgewinn * aktueller_steuersatz
+        
+        netto_erloes_verkauf = aktueller_hauswert - restschuld - vorfaelligkeitsentschaedigung - verkaufskosten - spekulationssteuer
 
         jahres_daten.append({
             "Jahr": int(jahr),
@@ -248,7 +285,9 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
             "Cashflow": cashflow_nach_steuer,
             "Hauswert": aktueller_hauswert,
             "Vermögen": aktuelles_vermoegen,
-            "Zuwachs Vermögen": zuwachs_vermoegen
+            "Zuwachs Vermögen": zuwachs_vermoegen,
+            "Vorfälligkeitsentschädigung (Exit)": vorfaelligkeitsentschaedigung,
+            "Netto-Erlös bei Verkauf (Exit)": netto_erloes_verkauf
         })
         
         aktuelle_jahresmiete *= (1 + mietsteigerung_pa / 100)
@@ -372,7 +411,8 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
             cols_to_show = [
                 "Jahr", "Einkommen (zvE)", "Grenzsteuersatz (%)", "Restschuld", "Mieteinnahmen", "Instandhaltung", "Mietausfall",
                 "Zinsanteil", "Tilgungsanteil", "Monatliche Gesamtkosten", "Monatlicher Eigenaufwand", "AfA", "Steuerersparnis",
-                "Cashflow", "Hauswert", "Vermögen", "Zuwachs Vermögen"
+                "Cashflow", "Hauswert", "Vermögen", "Zuwachs Vermögen",
+                "Vorfälligkeitsentschädigung (Exit)", "Netto-Erlös bei Verkauf (Exit)"
             ]
             format_dict = {col: "{:,.2f} €" for col in cols_to_show if col not in ["Jahr", "Grenzsteuersatz (%)"]}
             format_dict["Jahr"] = "{:.0f}"
@@ -410,12 +450,18 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
                 elif val < 0: return 'background-color: #e8f5e9; color: black'
                 return ''
             styler.applymap(color_eigenaufwand, subset=['Monatlicher Eigenaufwand'])
+            
+            def color_exit(val):
+                if val > 0: return 'background-color: #c8e6c9; color: black'
+                elif val < 0: return 'background-color: #ffcdd2; color: black'
+                return ''
+            styler.applymap(color_exit, subset=['Netto-Erlös bei Verkauf (Exit)'])
 
-            st.dataframe(styler, use_container_width=True, height=800)
+            st.dataframe(styler, use_container_width=True, height=700, hide_index=True)
             
         with tab_g:
             st.subheader("Visuelle Auswertung")
-            default_cols = ["Restschuld", "Hauswert", "Vermögen"]
+            default_cols = ["Restschuld", "Hauswert", "Vermögen", "Netto-Erlös bei Verkauf (Exit)"]
             available_cols = [c for c in df_display.columns if c not in ["Jahr", "Grenzsteuersatz (%)"]]
             selected_cols = st.multiselect("Wähle Werte für die Grafik:", available_cols, default=default_cols)
             
@@ -519,7 +565,7 @@ else:
 
         tab_t, tab_g = st.tabs(["Tabelle", "Graph"])
         with tab_t:
-            st.dataframe(df_display.style.format("{:,.2f} €", subset=[c for c in df_display.columns if c != "Jahr"]).hide(axis="index"), use_container_width=True, height=600)
+            st.dataframe(df_display.style.format("{:,.2f} €", subset=[c for c in df_display.columns if c != "Jahr"]).hide(axis="index"), use_container_width=True, height=700, hide_index=True)
         with tab_g:
             st.subheader("Visuelle Auswertung")
             sel_cols = st.multiselect("Werte", [c for c in df_display.columns if c != "Jahr"], default=["Eingezahltes Kapital", "Brutto Vermögen", "Netto Vermögen (n. St.)"])
