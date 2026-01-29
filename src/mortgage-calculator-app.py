@@ -301,7 +301,7 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
     # Toggles
     with col2:
         t_col1, t_col2 = st.columns(2)
-        with t_col1: show_analysis = st.toggle("Analyse & Risiken anzeigen", value=True)
+        with t_col1: show_analysis = st.toggle("Analyse & Risiken anzeigen", value=False)
         with t_col2: show_inflation = st.toggle("Inflationsbereinigt anzeigen", value=False, help="Rechnet alle zukünftigen Werte auf die heutige Kaufkraft herunter.")
 
     # Inflation
@@ -391,7 +391,7 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
             with st.expander("1. Finanzierungs-Struktur & Eigenkapital", expanded=True):
                 col_a, col_b = st.columns([1, 2])
                 with col_a:
-                    st.metric("Eigenkapitalquote", f"{ek_quote:.1f} %")
+                    st.metric("Eigenkapitalquote", f"{ek_quote:.1f} %", help="Berechnung: (Eigenkapital + Schenkung) / Kaufpreis * 100. Diese Kennzahl zeigt, wie viel Prozent des Kaufpreises Sie ohne Kredit finanzieren. Je höher die Quote, desto besser die Kreditkonditionen und desto geringer das Risiko.")
                 with col_b:
                     if ek_quote < 10:
                         st.error("🔴 **Kritisches Risiko (<10%):** Banken verlangen massive Risikoaufschläge. In 2026 ist eine Finanzierung ohne volle Nebenkostenübernahme (ca. 10-12%) aus Eigenmitteln fast unmöglich.")
@@ -408,8 +408,8 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
             with st.expander("2. Rentabilität & Kaufpreis-Check", expanded=True):
                 col_a, col_b = st.columns([1, 2])
                 with col_a:
-                    st.metric("Brutto-Mietrendite", f"{brutto_mietrendite:.2f} %")
-                    st.metric("Kaufpreisfaktor", f"{kaufpreisfaktor:.1f}")
+                    st.metric("Brutto-Mietrendite", f"{brutto_mietrendite:.2f} %", help="Berechnung: (Monatliche Kaltmiete * 12) / Kaufpreis * 100. Sie gibt das Verhältnis der Mieteinnahmen zum Kaufpreis an. Eine hohe Rendite ist wünschenswert, sie sollte idealerweise über dem Kreditzins liegen.")
+                    st.metric("Kaufpreisfaktor", f"{kaufpreisfaktor:.1f}", help="Berechnung: Kaufpreis / (Monatliche Kaltmiete * 12). Gibt an, wie viele Jahresmieten Sie für den Kauf der Immobilie aufwenden müssen. Ein niedriger Faktor (< 25) gilt oft als günstiger Kauf.")
                 with col_b:
                     # Bewertung Mietrendite vs Zins
                     if brutto_mietrendite < zinssatz:
@@ -466,10 +466,10 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
                     
                     with col_z1:
                         diff_6 = rate_6 - monatliche_rate
-                        st.metric("Rate bei 6% Zins", f"{rate_6:,.2f} €", delta=f"{diff_6:,.2f} €", delta_color="inverse")
+                        st.metric("Rate bei 6% Zins", f"{rate_6:,.2f} €", delta=f"{diff_6:,.2f} €", delta_color="inverse", help=f"Berechnung: Restschuld * (6% Zins + {tilgung}% Tilgung) / 12. Simuliert die neue monatliche Rate, wenn der Zins für die Anschlussfinanzierung auf 6% steigt.")
                     with col_z2:
                         diff_8 = rate_8 - monatliche_rate
-                        st.metric("Rate bei 8% Zins", f"{rate_8:,.2f} €", delta=f"{diff_8:,.2f} €", delta_color="inverse")
+                        st.metric("Rate bei 8% Zins", f"{rate_8:,.2f} €", delta=f"{diff_8:,.2f} €", delta_color="inverse", help=f"Berechnung: Restschuld * (8% Zins + {tilgung}% Tilgung) / 12. Simuliert die neue monatliche Rate, wenn der Zins für die Anschlussfinanzierung auf 8% steigt.")
                     
                     st.caption(f"Annahme: Anschlussfinanzierung mit {tilgung}% Tilgung auf die Restschuld. Delta zeigt die Mehrbelastung zur heutigen Rate.")
                     if (rate_6 - monatliche_rate) > 400:
