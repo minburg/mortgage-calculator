@@ -301,7 +301,7 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
     # Toggles
     with col2:
         t_col1, t_col2 = st.columns(2)
-        with t_col1: show_analysis = st.toggle("Analyse & Risiken anzeigen", value=False)
+        with t_col1: show_analysis = st.toggle("Analyse & Risiken anzeigen", value=True)
         with t_col2: show_inflation = st.toggle("Inflationsbereinigt anzeigen", value=False, help="Rechnet alle zukünftigen Werte auf die heutige Kaufkraft herunter.")
 
     # Inflation
@@ -378,31 +378,104 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
 
     with col2:
         if show_analysis:
-            st.subheader("💡 Analyse & Risiken")
+            st.markdown("## 🧐 Experten-Analyse & Risikobewertung (Stand 2026)")
             if show_inflation:
-                st.caption(f"Hinweis: Die Analyse basiert auf den inflationsbereinigten Werten ({inflationsrate}% p.a.).")
-            
-            hints_col1, hints_col2 = st.columns(2)
-            
-            with hints_col1:
-                if avg_cashflow < 0:
-                    st.error(f"⚠️ **Negativer Cashflow:** Du musst durchschnittlich **{abs(avg_cashflow):,.2f} € pro Jahr** zuschießen. Kannst du dir das dauerhaft leisten?")
-                else:
-                    st.success(f"✅ **Positiver Cashflow:** Die Immobilie erwirtschaftet einen Überschuss von ca. **{avg_cashflow:,.2f} € pro Jahr**.")
+                st.caption(f"⚠️ Hinweis: Die Analyse basiert auf den inflationsbereinigten Werten ({inflationsrate}% p.a.), außer bei Kredit-Nennwerten.")
 
-                if restschuld_zinsbindung > 0:
-                    st.warning(f"⚠️ **Zinsrisiko:** Nach {zinsbindung} Jahren hast du noch **{restschuld_zinsbindung:,.2f} € Schulden**. Wenn die Zinsen dann höher sind (z.B. 6%), steigt deine Rate deutlich!")
+            # --- 1. Kennzahlen Berechnung ---
+            ek_quote = (startkapital_gesamt / kaufpreis) * 100 if kaufpreis > 0 else 0
+            brutto_mietrendite = (mieteinnahmen_pm * 12 / kaufpreis) * 100 if kaufpreis > 0 else 0
+            kaufpreisfaktor = kaufpreis / (mieteinnahmen_pm * 12) if mieteinnahmen_pm > 0 else 0
             
-            with hints_col2:
-                kosten_quote = (avg_monatliche_gesamtkosten / (df_display['Mieteinnahmen'].mean()/12)) * 100 if df_display['Mieteinnahmen'].mean() > 0 else 0
+            # --- 2. Finanzierungs-Struktur (Eigenkapital) ---
+            with st.expander("1. Finanzierungs-Struktur & Eigenkapital", expanded=True):
+                col_a, col_b = st.columns([1, 2])
+                with col_a:
+                    st.metric("Eigenkapitalquote", f"{ek_quote:.1f} %")
+                with col_b:
+                    if ek_quote < 10:
+                        st.error("🔴 **Kritisches Risiko (<10%):** Banken verlangen massive Risikoaufschläge. In 2026 ist eine Finanzierung ohne volle Nebenkostenübernahme (ca. 10-12%) aus Eigenmitteln fast unmöglich.")
+                    elif ek_quote < 20:
+                        st.warning("🟠 **Erhöhtes Risiko (10-20%):** Das Minimum für solide Konditionen. Versuche, zumindest die Kaufnebenkosten komplett selbst zu tragen, um den Zinssatz zu drücken.")
+                    elif ek_quote < 30:
+                        st.success("🟢 **Solide Basis (20-30%):** Du erhältst gute Zinsen. Du bist gegen kurzfristige Wertschwankungen (z.B. 10% Preisrückgang) abgesichert.")
+                    else:
+                        st.success("🟢 **Exzellente Sicherheit (>30%):** Bestkonditionen! Überlege strategisch: Lohnt sich mehr Eigenkapital, oder ist die Rendite am Kapitalmarkt (ETF) höher als der Kreditzins? (Leverage-Effekt).")
                 
-                if kosten_quote > 100:
-                    st.warning(f"⚠️ **Hohe Kosten:** Deine monatlichen Ausgaben sind **{kosten_quote:.0f}%** deiner Mieteinnahmen. Du bist auf Steuerersparnisse oder Wertsteigerung angewiesen.")
+                st.info("💡 **Experten-Tipp:** Banken finanzieren ungern über 100% des Beleihungswertes. Kaufnebenkosten (Notar, Steuer, Makler) sind sofort weg und sollten immer 'Cash' vorhanden sein.")
+
+            # --- 3. Rentabilität & Marktpreis ---
+            with st.expander("2. Rentabilität & Kaufpreis-Check", expanded=True):
+                col_a, col_b = st.columns([1, 2])
+                with col_a:
+                    st.metric("Brutto-Mietrendite", f"{brutto_mietrendite:.2f} %")
+                    st.metric("Kaufpreisfaktor", f"{kaufpreisfaktor:.1f}")
+                with col_b:
+                    # Bewertung Mietrendite vs Zins
+                    if brutto_mietrendite < zinssatz:
+                        st.warning(f"🟠 **Negative Hebelwirkung:** Mietrendite ({brutto_mietrendite:.2f}%) < Kreditzins ({zinssatz}%). Die Immobilie trägt sich nicht selbst. Du zahlst jeden Monat drauf. Das lohnt sich nur bei hoher Wertsteigerung oder extremen Steuervorteilen.")
+                    elif brutto_mietrendite < zinssatz + 1.5:
+                        st.info(f"🟡 **Neutraler Bereich:** Die Miete deckt Zins und etwas Verwaltung, aber kaum Tilgung. Cashflow ist vermutlich negativ.")
+                    else:
+                        st.success(f"🟢 **Positiver Cashflow-Treiber:** Die Mietrendite ist deutlich höher als der Zins. Die Immobilie hilft aktiv bei der Tilgung.")
+
+                    # Bewertung Kaufpreisfaktor
+                    if kaufpreisfaktor > 30:
+                        st.error("🔴 **Teuer eingekauft (Faktor > 30):** Typisch für München oder Top-Lagen. In B/C-Lagen viel zu teuer. Wertsteigerungspotenzial ist begrenzt, Rückschlagrisiko hoch.")
+                    elif kaufpreisfaktor > 25:
+                        st.warning("🟠 **Marktüblich bis Teuer (Faktor 25-30):** In A-Städten normal, in B-Lagen ambitioniert. Achte auf den Zustand (Sanierungsstau?).")
+                    else:
+                        st.success("🟢 **Günstiger Einkauf (Faktor < 25):** Hier ist rechnerisch ein positiver Cashflow möglich. Prüfe aber: Warum ist es so günstig? (Lage, Bausubstanz, GEG-Sanierungspflicht?)")
+
+            # --- 4. Cashflow & Tragbarkeit ---
+            with st.expander("3. Cashflow & Monatliche Belastung", expanded=True):
+                avg_cf = df_display['Cashflow'].mean() if not df_display.empty else 0
+                if avg_cf < 0:
+                    st.error(f"🔴 **Unterdeckung:** Du musst monatlich ca. **{abs(avg_cf)/12:,.0f} €** zuschießen (nach Steuern!).")
+                    st.markdown("""
+                    **Risiko-Check:**
+                    *   Ist dieser Betrag auch bei Elternzeit, Teilzeit oder Arbeitslosigkeit leistbar?
+                    *   Hast du Rücklagen für Sonderumlagen (WEG) oder Heizungstausch (Wärmepumpe)?
+                    """)
                 else:
-                    st.success(f"✅ **Deckung:** Deine Mieteinnahmen decken die laufenden Kosten (ohne Steuer).")
+                    st.success(f"🟢 **Cashflow Positiv:** Die Immobilie bringt dir monatlich ca. **{avg_cf/12:,.0f} €** zusätzlich ein (nach Steuern).")
+                
+                st.markdown(f"**Tilgungs-Check:** Du tilgst mit {tilgung}%.")
+                if tilgung < 2.0:
+                    st.warning("⚠️ **Tilgung zu niedrig (<2%):** Das Zinsänderungsrisiko am Ende der Laufzeit ist enorm, da die Restschuld kaum sinkt.")
+                elif tilgung > 3.0:
+                    st.info("ℹ️ **Hohe Tilgung (>3%):** Sehr gut für die Zinssicherheit, aber bindet viel Liquidität. Prüfe, ob du Sondertilgungs-Optionen hast, statt die Rate fix so hoch zu setzen.")
+
+            # --- 5. Zinsänderungsrisiko (Szenario-Rechnung) ---
+            with st.expander("4. Zinsänderungsrisiko (Der 'Zins-Hammer')", expanded=True):
+                # Wir nutzen df_projektion (nominal), da Schulden nominal sind
+                row_zinsbindung = df_projektion[df_projektion['Jahr'] == zinsbindung] if not df_projektion.empty else pd.DataFrame()
+                if not row_zinsbindung.empty:
+                    restschuld_ende = row_zinsbindung.iloc[0]['Restschuld']
+                else:
+                    restschuld_ende = 0.0
+                
+                st.write(f"Nach Ablauf der Zinsbindung ({zinsbindung} Jahre) hast du noch **{restschuld_ende:,.2f} €** Schulden.")
+                
+                if restschuld_ende > 1000:
+                    st.markdown("Was passiert, wenn die Zinsen dann bei **6%** oder **8%** liegen?")
+                    col_z1, col_z2 = st.columns(2)
                     
-                if nutze_sonderzeitraum:
-                    st.info(f"ℹ️ **Einkommensschwankung:** Du hast einen Sonderzeitraum von Jahr {sonder_jahre[0]} bis {sonder_jahre[1]} definiert. Prüfe in der Tabelle, ob der Cashflow in diesen Jahren tragbar ist.")
+                    rate_6 = restschuld_ende * (0.06 + tilgung/100) / 12
+                    rate_8 = restschuld_ende * (0.08 + tilgung/100) / 12
+                    
+                    with col_z1:
+                        diff_6 = rate_6 - monatliche_rate
+                        st.metric("Rate bei 6% Zins", f"{rate_6:,.2f} €", delta=f"{diff_6:,.2f} €", delta_color="inverse")
+                    with col_z2:
+                        diff_8 = rate_8 - monatliche_rate
+                        st.metric("Rate bei 8% Zins", f"{rate_8:,.2f} €", delta=f"{diff_8:,.2f} €", delta_color="inverse")
+                    
+                    st.caption(f"Annahme: Anschlussfinanzierung mit {tilgung}% Tilgung auf die Restschuld. Delta zeigt die Mehrbelastung zur heutigen Rate.")
+                    if (rate_6 - monatliche_rate) > 400:
+                        st.error("🔴 **Anschlussfinanzierungs-Schock:** Deine Rate könnte massiv steigen. Empfehlung: Längere Zinsbindung wählen oder Bausparvertrag zur Absicherung prüfen!")
+                else:
+                    st.success("Du bist bis dahin schuldenfrei (oder fast). Kein Zinsrisiko.")
 
             st.markdown("---")
 
@@ -541,10 +614,10 @@ else:
         st.metric("Startkapital", f"{startkapital_gesamt:,.2f} €")
         st.metric("Monatliche Sparrate", f"{etf_sparrate:,.2f} €")
         
-        end_netto = df_display.iloc[-1]['Netto Vermögen (n. St.)']
+        end_netto = df_display.iloc[-1]['Netto Vermögen (n. St.)'] if not df_display.empty else 0
         st.metric("Netto-Vermögen am Ende", f"{end_netto:,.2f} €", help="Nach Abzug der Kapitalertragsteuer.")
         
-        total_invest = df_display.iloc[-1]['Eingezahltes Kapital']
+        total_invest = df_display.iloc[-1]['Eingezahltes Kapital'] if not df_display.empty else 0
         st.metric("Gesamt Investiert", f"{total_invest:,.2f} €")
 
     with col2:
