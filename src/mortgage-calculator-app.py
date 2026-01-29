@@ -25,13 +25,14 @@ eigenkapital_b = 0.0
 geschenk_a = 0.0
 geschenk_b = 0.0
 startkapital_gesamt = 0.0
+vertrag_ausschluss_zugewinn = False
 
 # --- Szenario A: Immobilienkauf ---
 if szenario == "Immobilienkauf (innerhalb Familie)":
     
     # --- 1. Eigentumsverhältnisse & Kapital ---
     with st.sidebar.expander("1. Eigentum & Kapital", expanded=True):
-        eigentums_modus = st.radio("Eigentumsverhältnisse", ["Alleineigentum (Eine Person)", "Gemeinschaftseigentum (50/50)"])
+        eigentums_modus = st.radio("Eigentumsverhältnisse", ["Alleineigentum (Eine Person)", "Gemeinschaftseigentum (nach EK-Anteil)"])
         
         if eigentums_modus == "Alleineigentum (Eine Person)":
             eigentuemer = st.selectbox("Wer ist der Eigentümer (Grundbuch)?", ["Person A (meist Hauptverdiener)", "Person B"])
@@ -40,8 +41,15 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
             geschenk_a = st.number_input("Schenkung an Käufer (€)", value=440000.0, step=5000.0, help="Falls dir die Verkäufer einen Teil des Kaufpreises schenken.")
             startkapital_gesamt = eigenkapital_a + geschenk_a
             
+            # Neuer Parameter: Vertraglicher Ausschluss
+            vertrag_ausschluss_zugewinn = st.checkbox(
+                "Ehevertrag: Immobilie aus Zugewinn ausgeschlossen?", 
+                value=False,
+                help="Wenn aktiviert, wird angenommen, dass ein Ehevertrag existiert, der die Immobilie aus dem Zugewinnausgleich herausnimmt (Gütertrennung für diesen Gegenstand)."
+            )
+            
         else:
-            st.caption("Beide Partner bringen Kapital ein.")
+            st.caption("Beide Partner bringen Kapital ein. Eigentumsanteile basieren auf dem eingebrachten Kapital (EK + Schenkung).")
             col_ek1, col_ek2 = st.columns(2)
             with col_ek1:
                 eigenkapital_a = st.number_input("Eigenkapital Person A (€)", value=50000.0, step=5000.0, help="Eigenkapital von Person A.")
@@ -212,6 +220,31 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
     anfangs_vermoegen_netto = startkapital_gesamt # Das was man eingebracht hat
     vermoegen_vorjahr = kaufpreis - kreditbetrag # Initialisierung für Zuwachs-Berechnung
     
+    # Eigentumsanteile berechnen (für Gemeinschaftseigentum)
+    if eigentums_modus == "Gemeinschaftseigentum (nach EK-Anteil)":
+        kapital_a = eigenkapital_a + geschenk_a
+        kapital_b = eigenkapital_b + geschenk_b
+        # Annahme: Kredit wird 50/50 getragen, aber EK ist unterschiedlich.
+        # Eigentumsanteil = (EK_Anteil + 50% Kredit) / Gesamtinvestition
+        # Oder einfacher: Wir definieren den Eigentumsanteil basierend auf der Gesamtfinanzierung.
+        # Üblich: Wenn beide im Grundbuch stehen (oft 50/50), aber unterschiedlich EK einbringen,
+        # wird das intern verrechnet oder im Grundbuch stehen krumme Anteile (z.B. 60/40).
+        # Wir simulieren hier: Eigentumsanteil = Anteil am Gesamtinvest (EK + 50% Kredit)
+        anteil_kredit_pro_kopf = kreditbetrag / 2
+        invest_a = kapital_a + anteil_kredit_pro_kopf
+        invest_b = kapital_b + anteil_kredit_pro_kopf
+        
+        anteil_a_prozent = invest_a / gesamtinvestition
+        anteil_b_prozent = invest_b / gesamtinvestition
+    else:
+        # Alleineigentum
+        if "Person A" in eigentuemer:
+            anteil_a_prozent = 1.0
+            anteil_b_prozent = 0.0
+        else:
+            anteil_a_prozent = 0.0
+            anteil_b_prozent = 1.0
+    
     kumulierte_afa = 0.0
     jahr = 0
     max_laufzeit = 80
@@ -247,18 +280,9 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
         steuer_ohne = get_steuerlast_zusammen(ek_a, ek_b)
         
         # Steuer MIT Immobilie
-        if eigentums_modus == "Gemeinschaftseigentum (50/50)":
-            # Verlust/Gewinn wird 50/50 geteilt
-            ek_a_mit = ek_a + (ergebnis_vv / 2)
-            ek_b_mit = ek_b + (ergebnis_vv / 2)
-        else:
-            # Alleineigentum
-            if "Person A" in eigentuemer:
-                ek_a_mit = ek_a + ergebnis_vv
-                ek_b_mit = ek_b
-            else:
-                ek_a_mit = ek_a
-                ek_b_mit = ek_b + ergebnis_vv
+        # Aufteilung des V+V Ergebnisses nach Eigentumsanteilen
+        ek_a_mit = ek_a + (ergebnis_vv * anteil_a_prozent)
+        ek_b_mit = ek_b + (ergebnis_vv * anteil_b_prozent)
         
         steuer_mit = get_steuerlast_zusammen(ek_a_mit, ek_b_mit)
         steuerersparnis = steuer_ohne - steuer_mit
@@ -284,12 +308,17 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
         
         ausgleichszahlung_scheidung = 0.0
         if eigentums_modus == "Alleineigentum (Eine Person)":
-            # Wenn einer alles besitzt, muss er dem anderen die Hälfte des Zugewinns geben (Zugewinngemeinschaft)
-            if zugewinn_gesamt > 0:
-                ausgleichszahlung_scheidung = zugewinn_gesamt / 2
+            if vertrag_ausschluss_zugewinn:
+                ausgleichszahlung_scheidung = 0.0 # Vertraglich ausgeschlossen
+            else:
+                # Wenn einer alles besitzt, muss er dem anderen die Hälfte des Zugewinns geben (Zugewinngemeinschaft)
+                if zugewinn_gesamt > 0:
+                    ausgleichszahlung_scheidung = zugewinn_gesamt / 2
         else:
-            # Bei 50/50 Eigentum gehört jedem schon die Hälfte, keine Ausgleichszahlung auf die Substanz nötig
-            # (Realität: Haus muss oft verkauft werden, um das Geld zu teilen)
+            # Bei Gemeinschaftseigentum gehört jedem schon sein Anteil.
+            # Da wir hier nach EK-Anteil aufgeteilt haben, ist es "fair".
+            # Zugewinnausgleich würde nur fällig, wenn einer MEHR gewonnen hat als der andere während der Ehe.
+            # Vereinfacht: 0, da Eigentum ~ Investition.
             ausgleichszahlung_scheidung = 0.0 
 
         # 7. Exit: Verkauf
@@ -441,8 +470,8 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
                     *   **Aber:** Bei Scheidung oder Erbe macht es einen riesigen Unterschied (siehe Punkt 4).
                     """)
                 else:
-                    st.write("Beide Partner sind zu 50% Eigentümer. Miete und AfA werden geteilt.")
-                    st.success("✅ **Sicherheit:** Dies ist die fairste Lösung. Beide bauen Vermögen auf. Im Scheidungsfall gehört jedem die Hälfte, es muss kein riesiger Zugewinnausgleich gezahlt werden (nur das Haus muss evtl. verkauft werden).")
+                    st.write(f"Beide Partner sind Eigentümer. Aufteilung basierend auf Investition (EK + 50% Kredit): **A: {anteil_a_prozent*100:.1f}% / B: {anteil_b_prozent*100:.1f}%**.")
+                    st.success("✅ **Fairness:** Die Eigentumsanteile spiegeln das eingebrachte Kapital wider. Miete und AfA werden entsprechend geteilt.")
 
             # --- 2. Finanzierung ---
             with st.expander("2. Finanzierung & Eigenkapital", expanded=True):
@@ -550,10 +579,13 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
                     vermoegen = 0
                 
                 if eigentums_modus == "Alleineigentum (Eine Person)":
-                    st.warning(f"⚠️ **Risiko für Eigentümer:** Da du Alleineigentümer bist, musst du im Scheidungsfall (Zugewinngemeinschaft) dem Partner die Hälfte des Wertzuwachses auszahlen.")
-                    st.metric("Mögliche Auszahlung an Ex-Partner (nach 10 Jahren)", f"{ausgleich:,.2f} €", help="Hälfte des Netto-Vermögenszuwachses.")
-                    if ausgleich > 50000:
-                        st.error("🔴 **Liquiditäts-Gefahr:** Könntest du diesen Betrag sofort bar auszahlen? Wenn nicht, muss das Haus zwangsverkauft werden, um den Partner auszuzahlen.")
+                    if vertrag_ausschluss_zugewinn:
+                        st.success("✅ **Vertraglich gesichert:** Durch den Ehevertrag ist die Immobilie vom Zugewinn ausgeschlossen. Keine Ausgleichszahlung nötig.")
+                    else:
+                        st.warning(f"⚠️ **Risiko für Eigentümer:** Da du Alleineigentümer bist, musst du im Scheidungsfall (Zugewinngemeinschaft) dem Partner die Hälfte des Wertzuwachses auszahlen.")
+                        st.metric("Mögliche Auszahlung an Ex-Partner (nach 10 Jahren)", f"{ausgleich:,.2f} €", help="Hälfte des Netto-Vermögenszuwachses.")
+                        if ausgleich > 50000:
+                            st.error("🔴 **Liquiditäts-Gefahr:** Könntest du diesen Betrag sofort bar auszahlen? Wenn nicht, muss das Haus zwangsverkauft werden, um den Partner auszuzahlen.")
                 else:
                     st.success("✅ **Neutral:** Da beiden das Haus gehört, muss niemand ausgezahlt werden. Aber: Wenn ihr euch nicht einig werdet, droht die Teilungsversteigerung (Verlustgeschäft).")
 
