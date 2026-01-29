@@ -44,6 +44,22 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
             min_value=50000.0, max_value=5000000.0, value=1150000.0, step=10000.0,
             help="Der Preis, der im Kaufvertrag steht. Auf diesen Betrag beziehen sich Finanzierung und Abschreibung."
         )
+        
+        st.markdown("##### Kaufnebenkosten")
+        col_nk1, col_nk2 = st.columns(2)
+        with col_nk1:
+            notar_grundbuch_prozent = st.number_input(
+                "Notar & Grundbuch (%)",
+                min_value=0.0, max_value=5.0, value=2.0, step=0.1,
+                help="Kosten für Beurkundung und Grundbucheintrag. Faustformel: 1.5% - 2.0% des Kaufpreises."
+            )
+        with col_nk2:
+            grunderwerbsteuer_prozent = st.number_input(
+                "Grunderwerbsteuer (%)",
+                min_value=0.0, max_value=7.0, value=0.0, step=0.5,
+                help="Steuer beim Immobilienkauf (je nach Bundesland 3.5% - 6.5%). WICHTIG: Bei Verkauf an Kinder/Ehepartner meist 0%!"
+            )
+            
         anteil_grundstueck = st.slider(
             "Anteil des Grundstückswerts (%)",
             min_value=10, max_value=80, value=40,
@@ -172,6 +188,23 @@ with st.sidebar.expander("Inflation & Sonstiges", expanded=False):
         help="Um diesen Wert verringert sich die Kaufkraft des Geldes jährlich. Wenn du die 'Inflationsbereinigung' aktivierst, werden alle zukünftigen Werte auf heutige Kaufkraft umgerechnet."
     )
 
+# --- Formel-Datenbank (Definition) ---
+formeln_db = [
+    {"Name": "AfA (Absetzung für Abnutzung)", "Kategorie": "Immobilie", "Beschreibung": "Jährlicher steuerlicher Abschreibungsbetrag auf das Gebäude.", "Formel": r"AfA = (Kaufpreis \times (1 - \frac{Grundstücksanteil}{100})) \times 0.02"},
+    {"Name": "Brutto-Mietrendite", "Kategorie": "Immobilie", "Beschreibung": "Verhältnis der Jahresmiete zum Kaufpreis. Indikator für Rentabilität.", "Formel": r"Rendite = \frac{Monatsmiete \times 12}{Kaufpreis} \times 100"},
+    {"Name": "Cashflow (nach Steuer)", "Kategorie": "Immobilie", "Beschreibung": "Der tatsächliche monatliche/jährliche Geldfluss nach allen Einnahmen und Ausgaben.", "Formel": r"CF = Miete - (Zins + Tilgung) - Instandhaltung - Mietausfall + Steuerersparnis"},
+    {"Name": "Eigenkapitalquote", "Kategorie": "Immobilie", "Beschreibung": "Anteil des Eigenkapitals am Gesamtkaufpreis.", "Formel": r"EK_{Quote} = \frac{Eigenkapital + Schenkung}{Kaufpreis} \times 100"},
+    {"Name": "Kaufnebenkosten", "Kategorie": "Immobilie", "Beschreibung": "Zusatzkosten beim Kauf (Notar, Grundbuch, Steuer).", "Formel": r"Kosten = Kaufpreis \times \frac{Notar\% + Grunderwerbsteuer\%}{100}"},
+    {"Name": "Kaufpreisfaktor", "Kategorie": "Immobilie", "Beschreibung": "Wie viele Jahresmieten kostet das Haus?", "Formel": r"Faktor = \frac{Kaufpreis}{Monatsmiete \times 12}"},
+    {"Name": "Kreditbetrag", "Kategorie": "Immobilie", "Beschreibung": "Der tatsächlich benötigte Kredit bei der Bank.", "Formel": r"Kredit = (Kaufpreis + Kaufnebenkosten) - (Eigenkapital + Schenkung)"},
+    {"Name": "Monatliche Rate (Annuität)", "Kategorie": "Immobilie", "Beschreibung": "Die monatliche Zahlung an die Bank.", "Formel": r"Rate = Kreditbetrag \times \frac{Zins\% + Tilgung\%}{100} \times \frac{1}{12}"},
+    {"Name": "Steuerersparnis", "Kategorie": "Immobilie", "Beschreibung": "Rückerstattung vom Finanzamt durch Verluste aus Vermietung.", "Formel": r"Ersparnis = -(Miete - Zinsen - AfA - Instandhaltung) \times Steuersatz"},
+    {"Name": "Vorfälligkeitsentschädigung", "Kategorie": "Immobilie", "Beschreibung": "Strafe bei vorzeitigem Kreditausstieg (vereinfacht).", "Formel": r"VFE \approx Restschuld \times (Vertragszins - Marktzins) \times Restlaufzeit"},
+    {"Name": "Zinseszins (ETF)", "Kategorie": "ETF", "Beschreibung": "Exponentielles Wachstum durch Wiederanlage von Gewinnen.", "Formel": r"K_n = K_0 \times (1 + \frac{p}{100})^n + Sparrate \times \dots"},
+    {"Name": "ETF Steuer", "Kategorie": "ETF", "Beschreibung": "Kapitalertragsteuer auf den Gewinn.", "Formel": r"Steuer = (Endwert - Einzahlungen) \times \frac{Steuersatz}{100}"},
+]
+formeln_db = sorted(formeln_db, key=lambda x: x["Name"])
+
 
 # ==============================================================================
 # LOGIK: IMMOBILIENKAUF
@@ -191,9 +224,13 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
         elif zve <= eckwert_45: return 0.42
         else: return 0.45
 
-    kreditbetrag = kaufpreis - startkapital_gesamt
+    # --- Berechnung mit Nebenkosten ---
+    nebenkosten_betrag = kaufpreis * ((notar_grundbuch_prozent + grunderwerbsteuer_prozent) / 100)
+    gesamtinvestition = kaufpreis + nebenkosten_betrag
+    kreditbetrag = gesamtinvestition - startkapital_gesamt
+    
     if kreditbetrag <= 0:
-        st.error("Das Eigenkapital übersteigt den Kaufpreis. Es ist kein Kredit notwendig.")
+        st.error(f"Das Eigenkapital ({startkapital_gesamt:,.2f} €) deckt Kaufpreis + Nebenkosten ({gesamtinvestition:,.2f} €). Kein Kredit notwendig.")
         st.stop()
 
     jaehrliche_rate = kreditbetrag * (zinssatz / 100 + tilgung / 100)
@@ -206,7 +243,7 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
     aktuelle_jahresmiete = mieteinnahmen_pm * 12
     aktuelle_instandhaltung = instandhaltung_pa
     aktueller_hauswert = kaufpreis
-    vermoegen_vorjahr = kaufpreis - kreditbetrag
+    vermoegen_vorjahr = kaufpreis - kreditbetrag # Startvermögen (Haus - Schulden)
     kumulierte_afa = 0.0
     jahr = 0
     max_laufzeit = 80
@@ -320,7 +357,7 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
         st.metric(
             "Kreditbetrag",
             f"{kreditbetrag:,.2f} €",
-            help="Der Betrag, der von der Bank geliehen wird (Kaufpreis - Eigenkapital)."
+            help=f"Kaufpreis ({kaufpreis:,.0f}) + Nebenkosten ({nebenkosten_betrag:,.0f}) - Eigenkapital ({startkapital_gesamt:,.0f})."
         )
         st.metric(
             "Monatliche Rate (Bank)",
@@ -392,6 +429,7 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
                 col_a, col_b = st.columns([1, 2])
                 with col_a:
                     st.metric("Eigenkapitalquote", f"{ek_quote:.1f} %", help="Berechnung: (Eigenkapital + Schenkung) / Kaufpreis * 100. Diese Kennzahl zeigt, wie viel Prozent des Kaufpreises Sie ohne Kredit finanzieren. Je höher die Quote, desto besser die Kreditkonditionen und desto geringer das Risiko.")
+                    st.metric("Kaufnebenkosten", f"{nebenkosten_betrag:,.2f} €", help=f"Notar/Grundbuch ({notar_grundbuch_prozent}%) + Grunderwerbsteuer ({grunderwerbsteuer_prozent}%). Diese Kosten sind 'weg' und erhöhen den Wert der Immobilie nicht.")
                 with col_b:
                     if ek_quote < 10:
                         st.error("🔴 **Kritisches Risiko (<10%):** Banken verlangen massive Risikoaufschläge. In 2026 ist eine Finanzierung ohne volle Nebenkostenübernahme (ca. 10-12%) aus Eigenmitteln fast unmöglich.")
@@ -479,7 +517,7 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
 
             st.markdown("---")
 
-        tab_t, tab_g = st.tabs(["Tabelle", "Graph"])
+        tab_t, tab_g, tab_f = st.tabs(["Tabelle", "Graph", "📚 Formeln"])
         with tab_t:
             cols_to_show = [
                 "Jahr", "Einkommen (zvE)", "Grenzsteuersatz (%)", "Restschuld", "Mieteinnahmen", "Instandhaltung", "Mietausfall",
@@ -549,6 +587,17 @@ if szenario == "Immobilienkauf (innerhalb Familie)":
                 st.altair_chart(chart, use_container_width=True)
             else:
                 st.info("Bitte wähle mindestens einen Wert aus.")
+        
+        with tab_f:
+            st.subheader("📚 Formel-Verzeichnis")
+            st.caption("Hier finden Sie alle verwendeten Berechnungen transparent erklärt.")
+            search_term = st.text_input("🔍 Formel suchen...", "").lower()
+            
+            for item in formeln_db:
+                if search_term in item["Name"].lower() or search_term in item["Beschreibung"].lower():
+                    with st.expander(f"{item['Name']} ({item['Kategorie']})"):
+                        st.markdown(f"**Beschreibung:** {item['Beschreibung']}")
+                        st.latex(item['Formel'])
 
 
 # ==============================================================================
@@ -674,7 +723,7 @@ else:
 
             st.markdown("---")
 
-        tab_t, tab_g = st.tabs(["Tabelle", "Graph"])
+        tab_t, tab_g, tab_f = st.tabs(["Tabelle", "Graph", "📚 Formeln"])
         with tab_t:
             st.dataframe(df_display.style.format("{:,.2f} €", subset=[c for c in df_display.columns if c != "Jahr"]).hide(axis="index"), use_container_width=True, height=700, hide_index=True)
         with tab_g:
@@ -691,3 +740,14 @@ else:
                 st.altair_chart(c, use_container_width=True)
             else:
                 st.info("Bitte wähle mindestens einen Wert aus.")
+        
+        with tab_f:
+            st.subheader("📚 Formel-Verzeichnis")
+            st.caption("Hier finden Sie alle verwendeten Berechnungen transparent erklärt.")
+            search_term = st.text_input("🔍 Formel suchen...", "").lower()
+            
+            for item in formeln_db:
+                if search_term in item["Name"].lower() or search_term in item["Beschreibung"].lower():
+                    with st.expander(f"{item['Name']} ({item['Kategorie']})"):
+                        st.markdown(f"**Beschreibung:** {item['Beschreibung']}")
+                        st.latex(item['Formel'])
