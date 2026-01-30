@@ -142,7 +142,7 @@ with st.sidebar.expander("Inflation", expanded=False):
 
 # --- Formel-Datenbank (Double Backslash Fix) ---
 formeln_db = [
-    {"Name": "AfA (Absetzung für Abnutzung)", "Kategorie": "Immobilie", "Beschreibung": "Jährlicher steuerlicher Abschreibungsbetrag auf das Gebäude.", "Formel": r"AfA = (Kaufpreis \times (1 - \frac{Grundstücksanteil}{100})) \times 0.02"},
+    {"Name": "AfA (Absetzung für Abnutzung)", "Kategorie": "Immobilie", "Beschreibung": "Jährlicher steuerlicher Abschreibungsbetrag auf das Gebäude.", "Formel": r"$$ AfA = (Kaufpreis \\times (1 - \\frac{Grundstücksanteil}{100})) \\times 0.02 $$"},
     {"Name": "Brutto-Mietrendite", "Kategorie": "Immobilie", "Beschreibung": "Verhältnis der Jahresmiete zum Kaufpreis.", "Formel": r"Rendite = \frac{Monatsmiete \times 12}{Kaufpreis} \times 100"},
     {"Name": "Cashflow (nach Steuer)", "Kategorie": "Immobilie", "Beschreibung": "Geldfluss nach allen Einnahmen und Ausgaben.", "Formel": r"CF = Miete - (Zins + Tilgung) - Instandhaltung - Mietausfall + Steuerersparnis"},
     {"Name": "Eigenkapitalquote", "Kategorie": "Immobilie", "Beschreibung": "Anteil des Eigenkapitals.", "Formel": r"EK_{Quote} = \frac{Eigenkapital}{Kaufpreis} \times 100"},
