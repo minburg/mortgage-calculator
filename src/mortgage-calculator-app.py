@@ -171,7 +171,7 @@ formeln_db = [
         "Name": "Kaufnebenkosten",
         "Kategorie": "Immobilie",
         "Beschreibung": "Zusatzkosten beim Kauf.",
-        "Formel": f"Kosten = Kaufpreis {bs}times {bs}frac{{Notar% + Grunderwerbsteuer%}}{{100}}"
+        "Formel": f"Kosten = Kaufpreis {bs}times {bs}frac{{Notar{bs}% + Grunderwerbsteuer{bs}%}}{{100}}"
     },
     {
         "Name": "Kaufpreisfaktor",
@@ -189,7 +189,7 @@ formeln_db = [
         "Name": "Monatliche Rate",
         "Kategorie": "Immobilie",
         "Beschreibung": "Annuität an die Bank.",
-        "Formel": f"Rate = Kreditbetrag {bs}times {bs}frac{{Zins% + Tilgung%}}{{100}} {bs}times {bs}frac{{1}}{{12}}"
+        "Formel": f"Rate = Kreditbetrag {bs}times {bs}frac{{Zins{bs}% + Tilgung{bs}%}}{{100}} {bs}times {bs}frac{{1}}{{12}}"
     },
     {
         "Name": "Steuerersparnis",
