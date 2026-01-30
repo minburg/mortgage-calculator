@@ -140,18 +140,69 @@ with st.sidebar.expander("Inflation", expanded=False):
     st.caption("Annahme für die Geldentwertung")
     inflationsrate = st.slider("Inflation (%)", 0.0, 10.0, 2.0, 0.1, help="Um diesen Wert verringert sich die Kaufkraft des Geldes jährlich. Wenn du die 'Inflationsbereinigung' aktivierst, werden alle zukünftigen Werte auf heutige Kaufkraft umgerechnet.")
 
-# --- Formel-Datenbank (Double Backslash Fix) ---
+bs = chr(92)
+
 formeln_db = [
-    {"Name": "AfA (Absetzung für Abnutzung)", "Kategorie": "Immobilie", "Beschreibung": "Jährlicher steuerlicher Abschreibungsbetrag auf das Gebäude.", "Formel": r"$$ AfA = (Kaufpreis \\times (1 - \\frac{Grundstücksanteil}{100})) \\times 0.02 $$"},
-    {"Name": "Brutto-Mietrendite", "Kategorie": "Immobilie", "Beschreibung": "Verhältnis der Jahresmiete zum Kaufpreis.", "Formel": r"Rendite = \frac{Monatsmiete \times 12}{Kaufpreis} \times 100"},
-    {"Name": "Cashflow (nach Steuer)", "Kategorie": "Immobilie", "Beschreibung": "Geldfluss nach allen Einnahmen und Ausgaben.", "Formel": r"CF = Miete - (Zins + Tilgung) - Instandhaltung - Mietausfall + Steuerersparnis"},
-    {"Name": "Eigenkapitalquote", "Kategorie": "Immobilie", "Beschreibung": "Anteil des Eigenkapitals.", "Formel": r"EK_{Quote} = \frac{Eigenkapital}{Kaufpreis} \times 100"},
-    {"Name": "Kaufnebenkosten", "Kategorie": "Immobilie", "Beschreibung": "Zusatzkosten beim Kauf.", "Formel": r"Kosten = Kaufpreis \times \frac{Notar\% + Grunderwerbsteuer\%}{100}"},
-    {"Name": "Kaufpreisfaktor", "Kategorie": "Immobilie", "Beschreibung": "Jahresmieten bis Kaufpreis bezahlt.", "Formel": r"Faktor = \frac{Kaufpreis}{Monatsmiete \times 12}"},
-    {"Name": "Kreditbetrag", "Kategorie": "Immobilie", "Beschreibung": "Finanzierungsbedarf.", "Formel": r"Kredit = (Kaufpreis + Nebenkosten) - Eigenkapital"},
-    {"Name": "Monatliche Rate", "Kategorie": "Immobilie", "Beschreibung": "Annuität an die Bank.", "Formel": r"Rate = Kreditbetrag \times \frac{Zins\% + Tilgung\%}{100} \times \frac{1}{12}"},
-    {"Name": "Steuerersparnis", "Kategorie": "Immobilie", "Beschreibung": "Differenz Steuerlast mit vs. ohne Immobilie.", "Formel": r"\Delta Steuer = Steuer_{ohne} - Steuer_{mit}"},
-    {"Name": "Zugewinn (Scheidung)", "Kategorie": "Risiko", "Beschreibung": "Wertzuwachs während der Ehe (vereinfacht).", "Formel": r"Zugewinn = (Wert_{aktuell} - Schulden_{aktuell}) - (Wert_{Start} - Schulden_{Start})"},
+    {
+        "Name": "AfA (Absetzung für Abnutzung)",
+        "Kategorie": "Immobilie",
+        "Beschreibung": "Jährlicher steuerlicher Abschreibungsbetrag auf das Gebäude.",
+        "Formel": f"AfA = (Kaufpreis {bs}times (1 - {bs}frac{{Grundstücksanteil}}{{100}})) {bs}times 0.02"
+    },
+    {
+        "Name": "Brutto-Mietrendite",
+        "Kategorie": "Immobilie",
+        "Beschreibung": "Verhältnis der Jahresmiete zum Kaufpreis.",
+        "Formel": f"Rendite = {bs}frac{{Monatsmiete {bs}times 12}}{{Kaufpreis}} {bs}times 100"
+    },
+    {
+        "Name": "Cashflow (nach Steuer)",
+        "Kategorie": "Immobilie",
+        "Beschreibung": "Geldfluss nach allen Einnahmen und Ausgaben.",
+        "Formel": "CF = Miete - (Zins + Tilgung) - Instandhaltung - Mietausfall + Steuerersparnis"
+    },
+    {
+        "Name": "Eigenkapitalquote",
+        "Kategorie": "Immobilie",
+        "Beschreibung": "Anteil des Eigenkapitals.",
+        "Formel": f"EK_{{Quote}} = {bs}frac{{Eigenkapital}}{{Kaufpreis}} {bs}times 100"
+    },
+    {
+        "Name": "Kaufnebenkosten",
+        "Kategorie": "Immobilie",
+        "Beschreibung": "Zusatzkosten beim Kauf.",
+        "Formel": f"Kosten = Kaufpreis {bs}times {bs}frac{{Notar% + Grunderwerbsteuer%}}{{100}}"
+    },
+    {
+        "Name": "Kaufpreisfaktor",
+        "Kategorie": "Immobilie",
+        "Beschreibung": "Jahresmieten bis Kaufpreis bezahlt.",
+        "Formel": f"Faktor = {bs}frac{{Kaufpreis}}{{Monatsmiete {bs}times 12}}"
+    },
+    {
+        "Name": "Kreditbetrag",
+        "Kategorie": "Immobilie",
+        "Beschreibung": "Finanzierungsbedarf.",
+        "Formel": "Kredit = (Kaufpreis + Nebenkosten) - Eigenkapital"
+    },
+    {
+        "Name": "Monatliche Rate",
+        "Kategorie": "Immobilie",
+        "Beschreibung": "Annuität an die Bank.",
+        "Formel": f"Rate = Kreditbetrag {bs}times {bs}frac{{Zins% + Tilgung%}}{{100}} {bs}times {bs}frac{{1}}{{12}}"
+    },
+    {
+        "Name": "Steuerersparnis",
+        "Kategorie": "Immobilie",
+        "Beschreibung": "Differenz Steuerlast mit vs. ohne Immobilie.",
+        "Formel": f"{bs}Delta Steuer = Steuer_{{ohne}} - Steuer_{{mit}}"
+    },
+    {
+        "Name": "Zugewinn (Scheidung)",
+        "Kategorie": "Risiko",
+        "Beschreibung": "Wertzuwachs während der Ehe (vereinfacht).",
+        "Formel": "Zugewinn = (Wert_{aktuell} - Schulden_{aktuell}) - (Wert_{Start} - Schulden_{Start})"
+    },
 ]
 formeln_db = sorted(formeln_db, key=lambda x: x["Name"])
 
@@ -824,4 +875,4 @@ else:
                 if search_term in item["Name"].lower() or search_term in item["Beschreibung"].lower():
                     with st.expander(f"{item['Name']} ({item['Kategorie']})"):
                         st.markdown(f"**Beschreibung:** {item['Beschreibung']}")
-                        st.markdown(f"**Formel:** ${item['Formel']}$")
+                        st.latex(item["Formel"])
