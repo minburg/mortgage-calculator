@@ -824,4 +824,4 @@ else:
                 if search_term in item["Name"].lower() or search_term in item["Beschreibung"].lower():
                     with st.expander(f"{item['Name']} ({item['Kategorie']})"):
                         st.markdown(f"**Beschreibung:** {item['Beschreibung']}")
-                        st.latex(f"**Formel:** ${item['Formel']}$")
+                        st.markdown(f"**Formel:** ${item['Formel']}$")
