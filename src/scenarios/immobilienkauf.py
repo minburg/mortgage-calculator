@@ -341,6 +341,26 @@ def render(inflationsrate: float):
 
         with col_m2:
             st.metric("Vermögen Ende", f"{end_vermoegen:,.0f} €", help="Wert Immobilie - Restschuld")
+            
+            # ETF-Vergleich (Nominal)
+            r_etf_pa = st.session_state.get("etf_rendite", 7.0)
+            r_monatlich = r_etf_pa / 100 / 12
+            n_monate = len(df_projektion) * 12
+            if n_monate > 0:
+                fv_nom = df_projektion.iloc[-1]['Vermögen']
+                pv = startkapital_gesamt
+                zinsfaktor = (1 + r_monatlich) ** n_monate
+                
+                if zinsfaktor > 1:
+                    # Formel: PMT = (FV - PV * q^n) * i / (q^n - 1)
+                    etf_rate = (fv_nom - pv * zinsfaktor) * r_monatlich / (zinsfaktor - 1)
+                else:
+                    etf_rate = 0
+                
+                if etf_rate > 0:
+                    st.metric("Äquivalente ETF-Sparrate", f"{etf_rate:,.0f} €", help=f"Monatliche Sparrate, die nötig wäre, um bei {r_etf_pa}% Rendite das gleiche Endvermögen ({fv_nom:,.0f} €) zu erreichen (Startkapital: {pv:,.0f} €).")
+                else:
+                    st.metric("Äquivalente ETF-Sparrate", "0 €", help=f"Das Immobilien-Investment performt schlechter als das Startkapital bei {r_etf_pa}% Rendite.")
 
         # --- Metric Block 2: Monatlich ---
         st.markdown("#### Monatliche Belastung")

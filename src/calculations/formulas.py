@@ -58,6 +58,12 @@ _immobilien_formeln = [
         "Formel": f"{bs}Delta Steuer = Steuer_{{ohne}} - Steuer_{{mit}}"
     },
     {
+        "Name": "Äquivalente ETF-Sparrate",
+        "Kategorie": "Vergleich",
+        "Beschreibung": "Monatliche Sparrate, die nötig ist, um mit einem ETF das gleiche Endvermögen zu erreichen wie mit der Immobilie. Hierbei wird angenommen, dass das Startkapital (Eigenkapital) bereits zu Beginn angelegt wird.",
+        "Formel": f"Sparrate = {bs}frac{{Endvermoegen - Startkapital {bs}cdot (1+i)^n}}{{ {bs}frac{{(1+i)^n - 1}}{{i}} }} {bs}quad (i = {bs}frac{{Rendite_{{p.a.}}}}{{12 {bs}cdot 100}}, n = Monate)"
+    },
+    {
         "Name": "Zugewinn (Scheidung)",
         "Kategorie": "Risiko",
         "Beschreibung": "Wertzuwachs während der Ehe (vereinfacht).",
