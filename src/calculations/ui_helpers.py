@@ -38,15 +38,18 @@ def apply_inflation(df, inflationsrate, exclude_cols=None):
 def render_graph_tab(df_display, default_cols, key_suffix=""):
     """Render an Altair line chart with multiselect column picker."""
     st.subheader("Visuelle Auswertung")
-    available_cols = [
-        c
-        for c in df_display.columns
-        if c not in ["Jahr", "Grenzsteuersatz (%)", "AfA (Methode)"]
-    ]
+    
+    # Filter out columns that are not useful for plotting
+    exclude_cols = ["Jahr", "Grenzsteuersatz (%)", "AfA (Methode)", "Sonder-AfA (§7b)", "AfA Gesamt", "AfA"]
+    available_cols = [c for c in df_display.columns if c not in exclude_cols]
+    
+    # Ensure defaults are actually in the available columns
+    defaults = [d for d in default_cols if d in available_cols]
+    
     selected_cols = st.multiselect(
         "Wähle Werte für die Grafik:",
         available_cols,
-        default=[d for d in default_cols if d in available_cols],
+        default=defaults,
         key=f"graph_select_{key_suffix}" if key_suffix else None,
     )
 
@@ -54,19 +57,25 @@ def render_graph_tab(df_display, default_cols, key_suffix=""):
         chart_data = df_display.melt(
             "Jahr", value_vars=selected_cols, var_name="Kategorie", value_name="Wert"
         )
+        
+        # Create a selection that binds to the legend
+        selection = alt.selection_point(fields=['Kategorie'], bind='legend')
+
         chart = (
             alt.Chart(chart_data)
             .mark_line(point=True)
             .encode(
                 x=alt.X("Jahr:O", title="Jahr"),
                 y=alt.Y("Wert:Q", title="Betrag (€)", scale=alt.Scale(zero=False)),
-                color="Kategorie:N",
+                color=alt.Color("Kategorie:N"),
+                opacity=alt.condition(selection, alt.value(1), alt.value(0.2)),
                 tooltip=[
                     alt.Tooltip("Jahr", title="Jahr"),
                     alt.Tooltip("Kategorie", title="Kategorie"),
-                    alt.Tooltip("Wert", title="Wert", format=".2s"),
+                    alt.Tooltip("Wert", title="Wert", format=",.2f"),
                 ],
             )
+            .add_params(selection)
             .properties(height=600)
             .interactive()
         )

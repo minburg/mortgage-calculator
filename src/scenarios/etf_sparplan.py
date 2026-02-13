@@ -8,24 +8,39 @@ import pandas as pd
 
 from calculations.formulas import get_formeln
 from calculations.ui_helpers import render_toggles, apply_inflation, render_graph_tab, render_formeln_tab
+from calculations.state_management import (
+    persistent_number_input,
+    persistent_slider,
+    persistent_radio,
+    persistent_selectbox,
+    persistent_checkbox,
+)
 
 
 def render(inflationsrate: float):
     """Renders the complete ETF-Sparplan scenario."""
 
     # --- Sidebar Inputs ---
+    # --- Sidebar Inputs ---
+    
+    # --- 1. Startkapital ---
     with st.sidebar.expander("1. Startkapital", expanded=True):
         st.caption("Verfügbares Vermögen für beide Szenarien")
-        eigenkapital_kaeufer = st.number_input("Startkapital (€)", value=100000.0, help="Geld, das du auf dem Konto hast und für den (Haus/ETF)Kauf verwendest. Je mehr Eigenkapital, desto weniger Zinsen zahlst du (Haus).")
-        geschenk = st.number_input("Schenkung (€)", value=440000.0, help="Falls dir die Verkäufer einen Teil des Kaufpreises schenken, reduziert das deinen Kreditbedarf. Achtung: Schenkungssteuerfreibeträge beachten!")
-        startkapital_gesamt = eigenkapital_kaeufer + geschenk
+        eigenkapital_kaeufer = persistent_number_input("Startkapital (€)", value=100000.0, key="shared_ek_a", help="Geld, das du auf dem Konto hast und für den (Haus/ETF)Kauf verwendest. Je mehr Eigenkapital, desto weniger Zinsen zahlst du (Haus).")
+        geschenk = persistent_number_input("Schenkung (€)", value=440000.0, key="shared_geschenk_a", help="Falls dir die Verkäufer einen Teil des Kaufpreises schenken, reduziert das deinen Kreditbedarf. Achtung: Schenkungssteuerfreibeträge beachten!")
+        # Optional: Partner capital
+        eigenkapital_partner = persistent_number_input("Startkapital Partner (€)", value=0.0, key="shared_ek_b", help="Kapital des Partners (optional).")
+        geschenk_partner = persistent_number_input("Schenkung Partner (€)", value=0.0, key="shared_geschenk_b", help="Schenkung an Partner (optional).")
+        
+        startkapital_gesamt = eigenkapital_kaeufer + geschenk + eigenkapital_partner + geschenk_partner
 
+    # --- 2. ETF-Parameter ---
     with st.sidebar.expander("2. ETF-Parameter", expanded=True):
         st.caption("Annahmen für die Alternativanlage")
-        etf_rendite = st.slider("Rendite (%)", 0.0, 15.0, 7.0, 0.1, help="Langfristiger Durchschnitt des MSCI World liegt oft bei ca. 7-8%.")
-        etf_sparrate = st.number_input("Sparrate (€)", value=1000.0, help="Wie viel Geld steckst du jeden Monat zusätzlich in den ETF? (Vergleichbar mit dem Eigenaufwand beim Hauskauf)")
-        etf_steuer = st.slider("Steuersatz (%)", 0.0, 30.0, 18.5, 0.5, help="Kapitalertragsteuer (25%) + Soli. Bei Aktienfonds oft Teilfreistellung (30% steuerfrei), daher effektiv ca. 18.5%.")
-        laufzeit_etf = st.slider("Laufzeit (Jahre)", 5, 60, 30, help="Wie lange soll der Sparplan laufen?")
+        etf_rendite = persistent_slider("Rendite (%)", 0.0, 15.0, 7.0, 0.1, key="etf_rendite", help="Langfristiger Durchschnitt des MSCI World liegt oft bei ca. 7-8%.")
+        etf_sparrate = persistent_number_input("Sparrate (€)", value=1000.0, key="etf_sparrate", help="Wie viel Geld steckst du jeden Monat zusätzlich in den ETF? (Vergleichbar mit dem Eigenaufwand beim Hauskauf)")
+        etf_steuer = persistent_slider("Steuersatz (%)", 0.0, 30.0, 18.5, 0.5, key="etf_steuersatz", help="Kapitalertragsteuer (25%) + Soli. Bei Aktienfonds oft Teilfreistellung (30% steuerfrei), daher effektiv ca. 18.5%.")
+        laufzeit_etf = persistent_slider("Laufzeit (Jahre)", 5, 60, 30, key="etf_laufzeit", help="Wie lange soll der Sparplan laufen?")
 
     # ==============================================================================
     # LOGIK: ETF-SPARPLAN
@@ -55,7 +70,7 @@ def render(inflationsrate: float):
     df_etf = pd.DataFrame(etf_daten)
     
     # --- Anzeige ETF ---
-    col1, col2 = st.columns([1, 5])
+    col1, col2 = st.columns([1, 3])
     
     with col2:
         show_analysis, show_inflation = render_toggles()
@@ -70,14 +85,30 @@ def render(inflationsrate: float):
         st.subheader("Übersicht")
         if show_inflation: st.caption(f"⚠️ Werte inflationsbereinigt ({inflationsrate}%)")
         
-        st.metric("Startkapital", f"{startkapital_gesamt:,.2f} €")
-        st.metric("Monatliche Sparrate", f"{etf_sparrate:,.2f} €")
+        st.metric("Startkapital", f"{startkapital_gesamt:,.0f} €")
+        st.metric("Monatliche Sparrate", f"{etf_sparrate:,.0f} €")
         
         end_netto = df_display.iloc[-1]['Netto Vermögen (n. St.)'] if not df_display.empty else 0
-        st.metric("Netto-Vermögen am Ende", f"{end_netto:,.2f} €", help="Nach Abzug der Kapitalertragsteuer.")
         
         total_invest = df_display.iloc[-1]['Eingezahltes Kapital'] if not df_display.empty else 0
-        st.metric("Gesamt Investiert", f"{total_invest:,.2f} €")
+        total_gewinn = df_display.iloc[-1]['Gewinn (unrealisiert)'] if not df_display.empty else 0
+        end_steuer = df_display.iloc[-1]['Potenzielle Steuer'] if not df_display.empty else 0
+
+        st.metric(
+            "Netto-Vermögen am Ende",
+            f"{end_netto:,.0f} €",
+            help="Nach Abzug der Kapitalertragsteuer."
+        )
+        
+        st.markdown("---")
+        
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            st.metric("Gesamt Investiert", f"{total_invest:,.0f} €")
+        with col_m2:
+            st.metric("Gesamter Gewinn", f"{total_gewinn:,.0f} €")
+            
+        st.metric("Latente Steuerlast", f"{end_steuer:,.0f} €", help="Steuer, die bei Verkauf am Ende fällig wäre.")
 
     with col2:
         if show_analysis:
@@ -136,7 +167,15 @@ def render(inflationsrate: float):
         formeln = get_formeln("ETF-Sparplan (Alternative)")
         tab_t, tab_g, tab_f = st.tabs(["Tabelle", "Graph", "📚 Formeln"])
         with tab_t:
-            st.dataframe(df_display.style.format("{:,.2f} €", subset=[c for c in df_display.columns if c != "Jahr"]).hide(axis="index"), use_container_width=True, height=700, hide_index=True)
+             # Default hidden columns
+            cols_all = df_display.columns.tolist()
+            cols_default = [
+                "Jahr", "Eingezahltes Kapital", "Brutto Vermögen", "Netto Vermögen (n. St.)"
+            ]
+            cols_selected = st.multiselect("Spalten anzeigen:", cols_all, default=cols_default)
+
+            df_filtered = df_display[cols_selected]
+            st.dataframe(df_filtered.style.format("{:,.2f} €", subset=[c for c in df_filtered.columns if c != "Jahr"]).hide(axis="index"), use_container_width=True, height=700, hide_index=True)
         with tab_g:
             render_graph_tab(
                 df_display,

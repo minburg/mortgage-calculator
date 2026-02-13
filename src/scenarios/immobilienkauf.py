@@ -10,6 +10,13 @@ import altair as alt
 from calculations.tax import berechne_einkommensteuer, get_steuerlast_zusammen
 from calculations.formulas import get_formeln
 from calculations.ui_helpers import render_toggles, apply_inflation, render_graph_tab, render_formeln_tab
+from calculations.state_management import (
+    persistent_number_input,
+    persistent_slider,
+    persistent_radio,
+    persistent_selectbox,
+    persistent_checkbox,
+)
 
 
 def render(inflationsrate: float):
@@ -23,21 +30,36 @@ def render(inflationsrate: float):
     startkapital_gesamt = 0.0
     vertrag_ausschluss_zugewinn = False
 
-    # --- 1. Eigentumsverhältnisse & Kapital ---
-    with st.sidebar.expander("1. Eigentum & Kapital", expanded=True):
-        eigentums_modus = st.radio("Eigentumsverhältnisse", ["Alleineigentum (Eine Person)", "Gemeinschaftseigentum (nach EK-Anteil)"])
+    # =========================================================================
+    # SIDEBAR INPUTS (Reordered & Persistent)
+    # =========================================================================
+
+    # --- 1. Startkapital (Eigenkapital) ---
+    with st.sidebar.expander("1. Startkapital (Eigenkapital)", expanded=True):
+        st.caption("Wie viel Geld ist bereits vorhanden?")
+        
+        eigentums_modus = persistent_radio(
+            "Eigentumsverhältnisse",
+            ["Alleineigentum (Eine Person)", "Gemeinschaftseigentum (nach EK-Anteil)"],
+            key="immo_eigentum_modus"
+        )
         
         if eigentums_modus == "Alleineigentum (Eine Person)":
-            eigentuemer = st.selectbox("Wer ist der Eigentümer (Grundbuch)?", ["Person A (meist Hauptverdiener)", "Person B"])
+            eigentuemer = persistent_selectbox(
+                "Wer ist der Eigentümer (Grundbuch)?",
+                ["Person A (meist Hauptverdiener)", "Person B"],
+                key="immo_eigentuemer"
+            )
             st.caption("Das Eigenkapital wird dem Eigentümer zugerechnet.")
-            eigenkapital_a = st.number_input("Eigenkapital Käufer (€)", value=100000.0, step=5000.0, help="Geld, das du auf dem Konto hast und für den Kauf verwendest.")
-            geschenk_a = st.number_input("Schenkung an Käufer (€)", value=440000.0, step=5000.0, help="Falls dir die Verkäufer einen Teil des Kaufpreises schenken.")
+            eigenkapital_a = persistent_number_input("Eigenkapital Käufer (€)", value=100000.0, step=5000.0, key="shared_ek_a", help="Geld, das du auf dem Konto hast und für den Kauf verwendest.")
+            geschenk_a = persistent_number_input("Schenkung an Käufer (€)", value=440000.0, step=5000.0, key="shared_geschenk_a", help="Falls dir die Verkäufer einen Teil des Kaufpreises schenken.")
             startkapital_gesamt = eigenkapital_a + geschenk_a
             
             # Neuer Parameter: Vertraglicher Ausschluss
-            vertrag_ausschluss_zugewinn = st.checkbox(
+            vertrag_ausschluss_zugewinn = persistent_checkbox(
                 "Ehevertrag: Immobilie aus Zugewinn ausgeschlossen?", 
                 value=False,
+                key="immo_vertrag_zugewinn",
                 help="Wenn aktiviert, wird angenommen, dass ein Ehevertrag existiert, der die Immobilie aus dem Zugewinnausgleich herausnimmt (Gütertrennung für diesen Gegenstand)."
             )
             
@@ -45,72 +67,73 @@ def render(inflationsrate: float):
             st.caption("Beide Partner bringen Kapital ein. Eigentumsanteile basieren auf dem eingebrachten Kapital (EK + Schenkung).")
             col_ek1, col_ek2 = st.columns(2)
             with col_ek1:
-                eigenkapital_a = st.number_input("Eigenkapital Person A (€)", value=50000.0, step=5000.0, help="Eigenkapital von Person A.")
-                geschenk_a = st.number_input("Schenkung an A (€)", value=220000.0, step=5000.0, help="Schenkung an Person A.")
+                eigenkapital_a = persistent_number_input("Eigenkapital Person A (€)", value=50000.0, step=5000.0, key="shared_ek_a", help="Eigenkapital von Person A.")
+                geschenk_a = persistent_number_input("Schenkung an A (€)", value=220000.0, step=5000.0, key="shared_geschenk_a", help="Schenkung an Person A.")
             with col_ek2:
-                eigenkapital_b = st.number_input("Eigenkapital Person B (€)", value=50000.0, step=5000.0, help="Eigenkapital von Person B.")
-                geschenk_b = st.number_input("Schenkung an B (€)", value=220000.0, step=5000.0, help="Schenkung an Person B.")
+                eigenkapital_b = persistent_number_input("Eigenkapital Person B (€)", value=50000.0, step=5000.0, key="shared_ek_b", help="Eigenkapital von Person B.")
+                geschenk_b = persistent_number_input("Schenkung an B (€)", value=220000.0, step=5000.0, key="shared_geschenk_b", help="Schenkung an Person B.")
             startkapital_gesamt = eigenkapital_a + geschenk_a + eigenkapital_b + geschenk_b
 
-    # --- 2. Kaufpreis ---
-    with st.sidebar.expander("2. Kauf & Finanzierung", expanded=True):
-        st.caption("Wie viel kostet das Haus und wie viel Geld bringst du selbst mit?")
-        kaufpreis = st.number_input(
+    # --- 2. Objekt (Kaufpreis) ---
+    with st.sidebar.expander("2. Objekt (Kaufpreis)", expanded=True):
+        st.caption("Was kostet die Immobilie?")
+        kaufpreis = persistent_number_input(
             "Kaufpreis der Immobilie (€)",
             min_value=50000.0, max_value=5000000.0, value=1150000.0, step=10000.0,
+            key="immo_kaufpreis",
             help="Der Preis, der im Kaufvertrag steht. Auf diesen Betrag beziehen sich Finanzierung und Abschreibung."
         )
         
         st.markdown("##### Kaufnebenkosten")
         col_nk1, col_nk2 = st.columns(2)
         with col_nk1:
-            notar_grundbuch_prozent = st.number_input("Notar & Grundbuch (%)", value=2.0, step=0.1, help="Kosten für Beurkundung und Grundbucheintrag. Faustformel: 1.5% - 2.0% des Kaufpreises.")
+            notar_grundbuch_prozent = persistent_number_input("Notar & Grundbuch (%)", value=2.0, step=0.1, key="immo_notar", help="Kosten für Beurkundung und Grundbucheintrag. Faustformel: 1.5% - 2.0% des Kaufpreises.")
         with col_nk2:
-            grunderwerbsteuer_prozent = st.number_input("Grunderwerbsteuer (%)", value=0.0, step=0.5, help="Steuer beim Immobilienkauf (je nach Bundesland 3.5% - 6.5%). WICHTIG: Bei Verkauf an Kinder/Ehepartner meist 0%!")
+            grunderwerbsteuer_prozent = persistent_number_input("Grunderwerbsteuer (%)", value=0.0, step=0.5, key="immo_grunderwerb", help="Steuer beim Immobilienkauf (je nach Bundesland 3.5% - 6.5%). WICHTIG: Bei Verkauf an Kinder/Ehepartner meist 0%!")
             
-        anteil_grundstueck = st.slider("Anteil des Grundstückswerts (%)", 10, 80, 40, help="Wichtig für die Steuer: Nur das Gebäude nutzt sich ab und kann abgeschrieben werden (AfA), das Grundstück nicht. Ein typischer Wert ist 20-30%.")
-    
-    # --- 3. Kredit ---
-    with st.sidebar.expander("3. Kreditkonditionen", expanded=False):
-        st.caption("Was verlangt die Bank?")
-        zinssatz = st.slider("Zinssatz pro Jahr (%)", 0.5, 10.0, 3.2, 0.1, help="Die 'Gebühr' der Bank für das Leihen des Geldes. Aktuell sind ca. 3.5% - 4.5% üblich.")
-        tilgung = st.slider("Anfängliche Tilgung (%)", 1.0, 10.0, 2.0, 0.1, help="Der Teil deiner Rate, der den Schuldenberg tatsächlich verkleinert. Empfohlen sind mind. 2%.")
-        zinsbindung = st.slider("Zinsbindung (Jahre)", 5, 30, 10, help="So lange garantiert dir die Bank den Zinssatz. Danach wird neu verhandelt (Risiko steigender Zinsen!).")
+        anteil_grundstueck = persistent_slider("Anteil des Grundstückswerts (%)", 10, 80, 40, key="immo_grundstuecksanteil", help="Wichtig für die Steuer: Nur das Gebäude nutzt sich ab und kann abgeschrieben werden (AfA), das Grundstück nicht. Ein typischer Wert ist 20-30%.")
 
-    # --- 4. Miete & Kosten ---
-    with st.sidebar.expander("4. Miete & Ausgaben", expanded=False):
-        st.caption("Einnahmen und laufende Kosten")
-        mieteinnahmen_pm = st.number_input("Monatliche Kaltmiete (€)", value=2116.0, step=50.0, help="Die Miete, die du bekommst (ohne Nebenkosten).")
-        mietsteigerung_pa = st.slider("Jährliche Mietsteigerung (%)", 0.0, 5.0, 3.0, 0.1, help="Um wie viel Prozent erhöhst du die Miete jährlich? (Inflationsausgleich)")
-        instandhaltung_pa = st.number_input("Rücklage Instandhaltung/Jahr (€)", value=4000.0, step=100.0, help="Geld, das du für Reparaturen (Dach, Heizung, etc.) zurücklegen solltest. Faustformel: 10-15€ pro m² Wohnfläche im Jahr.")
-        mietausfall_pa = st.slider("Risiko Mietausfall (%)", 0.0, 10.0, 2.0, 0.5, help="Kalkuliere ein, dass die Wohnung mal leer steht oder Mieter nicht zahlen. 2% entspricht ca. 1 Woche Leerstand pro Jahr.")
-        kostensteigerung_pa = st.slider("Kostensteigerung pro Jahr (%)", 0.0, 5.0, 2.0, 0.1, help="Handwerker und Material werden teurer. Wie stark steigen deine Instandhaltungskosten?")
-        wertsteigerung_pa = st.slider("Wertsteigerung Immobilie (%)", 0.0, 10.0, 2.0, 0.1, help="Gewinnt das Haus an Wert? Historisch oft 1-3%, aber keine Garantie!")
+    # --- 3. Kredit & Finanzierung ---
+    with st.sidebar.expander("3. Kreditkonditionen & Finanzierung", expanded=True):
+        st.caption("Finanzierungsparameter")
+        zinssatz = persistent_slider("Zinssatz pro Jahr (%)", 0.5, 10.0, 3.2, 0.1, key="shared_zinssatz", help="Die 'Gebühr' der Bank für das Leihen des Geldes. Aktuell sind ca. 3.5% - 4.5% üblich.")
+        tilgung = persistent_slider("Anfängliche Tilgung (%)", 1.0, 10.0, 2.0, 0.1, key="immo_tilgung", help="Der Teil deiner Rate, der den Schuldenberg tatsächlich verkleinert. Empfohlen sind mind. 2%.")
+        zinsbindung = persistent_slider("Zinsbindung (Jahre)", 5, 30, 15, key="immo_zinsbindung", help="So lange garantiert dir die Bank den Zinssatz. Danach wird neu verhandelt (Risiko steigender Zinsen!).")
 
-    # --- 5. Steuer ---
-    with st.sidebar.expander("5. Einkommen & Steuer (2026)", expanded=True):
+    # --- 4. Laufende Kosten & Einnahmen ---
+    with st.sidebar.expander("4. Laufende Kosten & Einnahmen", expanded=False):
+        st.caption("Was kommt rein, was geht raus?")
+        mieteinnahmen_pm = persistent_number_input("Monatliche Kaltmiete (€)", value=2116.0, step=50.0, key="immo_miete", help="Die Miete, die du bekommst (ohne Nebenkosten).")
+        mietsteigerung_pa = persistent_slider("Jährliche Mietsteigerung (%)", 0.0, 5.0, 3.0, 0.1, key="immo_mietsteigerung", help="Um wie viel Prozent erhöhst du die Miete jährlich? (Inflationsausgleich)")
+        instandhaltung_pa = persistent_number_input("Rücklage Instandhaltung/Jahr (€)", value=4000.0, step=100.0, key="immo_instandhaltung", help="Geld, das du für Reparaturen (Dach, Heizung, etc.) zurücklegen solltest. Faustformel: 10-15€ pro m² Wohnfläche im Jahr.")
+        mietausfall_pa = persistent_slider("Risiko Mietausfall (%)", 0.0, 10.0, 2.0, 0.5, key="immo_mietausfall", help="Kalkuliere ein, dass die Wohnung mal leer steht oder Mieter nicht zahlen. 2% entspricht ca. 1 Woche Leerstand pro Jahr.")
+        kostensteigerung_pa = persistent_slider("Kostensteigerung pro Jahr (%)", 0.0, 5.0, 2.0, 0.1, key="immo_kostensteigerung", help="Handwerker und Material werden teurer. Wie stark steigen deine Instandhaltungskosten?")
+        wertsteigerung_pa = persistent_slider("Wertsteigerung Immobilie (%)", 0.0, 10.0, 2.0, 0.1, key="shared_wertsteigerung", help="Gewinnt das Haus an Wert? Historisch oft 1-3%, aber keine Garantie!")
+
+    # --- 5. Einkommen & Steuer ---
+    with st.sidebar.expander("5. Einkommen & Steuer (2026)", expanded=False):
         st.caption("Einkommen für Zusammenveranlagung (Ehegattensplitting)")
-        std_einkommen_mann = st.number_input("Brutto-Einkommen Person A (Standard) €", value=71000, step=1000, help="Zu versteuerndes Jahreseinkommen Person A.")
-        std_einkommen_frau = st.number_input("Brutto-Einkommen Person B (Standard) €", value=80000, step=1000, help="Zu versteuerndes Jahreseinkommen Person B.")
+        std_einkommen_mann = persistent_number_input("Brutto-Einkommen Person A (Standard) €", value=71000, step=1000, key="shared_ek_mann", help="Zu versteuerndes Jahreseinkommen Person A.")
+        std_einkommen_frau = persistent_number_input("Brutto-Einkommen Person B (Standard) €", value=80000, step=1000, key="shared_ek_frau", help="Zu versteuerndes Jahreseinkommen Person B.")
         st.info(f"Summe Standard: {std_einkommen_mann + std_einkommen_frau:,.2f} €")
         
         st.markdown("### Sonderzeitraum")
-        nutze_sonderzeitraum = st.checkbox("Sonderzeitraum aktivieren", value=False, help="Z.B. für Elternzeit oder Teilzeit.")
+        nutze_sonderzeitraum = persistent_checkbox("Sonderzeitraum aktivieren", value=False, key="immo_sonderzeitraum", help="Z.B. für Elternzeit oder Teilzeit.")
         if nutze_sonderzeitraum:
-            sonder_jahre = st.slider("Zeitraum (Jahre)", 1, 40, (3, 7))
-            sonder_einkommen_mann = st.number_input("Einkommen Person A (Sonder) €", value=71000, step=1000)
-            sonder_einkommen_frau = st.number_input("Einkommen Person B (Sonder) €", value=20000, step=1000)
+            sonder_jahre = persistent_slider("Zeitraum (Jahre)", 1, 40, (3, 7), key="immo_sonder_jahre")
+            sonder_einkommen_mann = persistent_number_input("Einkommen Person A (Sonder) €", value=71000, step=1000, key="immo_sonder_mann")
+            sonder_einkommen_frau = persistent_number_input("Einkommen Person B (Sonder) €", value=20000, step=1000, key="immo_sonder_frau")
             st.info(f"Summe Sonder: {sonder_einkommen_mann + sonder_einkommen_frau:,.2f} €")
         else:
             sonder_jahre = (0, 0)
             sonder_einkommen_mann = 0
             sonder_einkommen_frau = 0
 
-    # --- 6. Exit ---
+    # --- 6. Exit-Szenario ---
     with st.sidebar.expander("6. Exit-Szenario", expanded=False):
         st.caption("Parameter für den Fall eines vorzeitigen Verkaufs")
-        marktzins_verkauf = st.slider("Marktzins bei Verkauf (%)", 0.0, 10.0, 1.5, 0.1, help="Wird benötigt, um die Vorfälligkeitsentschädigung zu schätzen. Ist der Marktzins niedriger als dein Vertragszins, verlangt die Bank eine Entschädigung.")
-        verkaufskosten_prozent = st.slider("Verkaufskosten (%)", 0.0, 10.0, 3.0, 0.5, help="Kosten, die beim Verkauf vom Erlös abgehen.")
+        marktzins_verkauf = persistent_slider("Marktzins bei Verkauf (%)", 0.0, 10.0, 1.5, 0.1, key="immo_exit_marktzins", help="Wird benötigt, um die Vorfälligkeitsentschädigung zu schätzen. Ist der Marktzins niedriger als dein Vertragszins, verlangt die Bank eine Entschädigung.")
+        verkaufskosten_prozent = persistent_slider("Verkaufskosten (%)", 0.0, 10.0, 3.0, 0.5, key="immo_exit_kosten", help="Kosten, die beim Verkauf vom Erlös abgehen.")
 
     # ==============================================================================
     # LOGIK: IMMOBILIENKAUF
@@ -274,7 +297,7 @@ def render(inflationsrate: float):
     df_projektion = pd.DataFrame(jahres_daten)
     
     # --- Anzeige Immobilien ---
-    col1, col2 = st.columns([1, 5])
+    col1, col2 = st.columns([1, 3])
     
     # Toggles
     with col2:
@@ -289,65 +312,72 @@ def render(inflationsrate: float):
     with col1:
         st.subheader("Übersicht")
         if show_inflation: st.caption(f"⚠️ Werte inflationsbereinigt ({inflationsrate}%)")
-        
-        st.metric(
-            "Kreditbetrag",
-            f"{kreditbetrag:,.2f} €",
-            help=f"Kaufpreis ({kaufpreis:,.0f}) + Nebenkosten ({nebenkosten_betrag:,.0f}) - Eigenkapital ({startkapital_gesamt:,.0f})."
-        )
-        st.metric(
-            "Monatliche Rate (Bank)",
-            f"{monatliche_rate:,.2f} €",
-            help="Die monatliche Zahlung an die Bank (Zins + Tilgung)."
-        )
-        
+
         avg_monatliche_gesamtkosten = df_display['Monatliche Gesamtkosten'].mean() if not df_display.empty else 0
-        st.metric(
-            "Ø Monatliche Gesamtkosten",
-            f"{avg_monatliche_gesamtkosten:,.2f} €",
-            help="Durchschnittliche monatliche Gesamtausgaben (Rate an Bank + Instandhaltung + Mietausfall)."
-        )
         
         avg_eigenaufwand = df_display['Monatlicher Eigenaufwand'].mean() if not df_display.empty else 0
-        st.metric(
-            "Ø Monatlicher Eigenaufwand",
-            f"{avg_eigenaufwand:,.2f} €",
-            help="Was du monatlich wirklich draufzahlst (Kosten minus Mieteinnahmen). Negativ bedeutet Gewinn."
-        )
-        
+
+        # Restschuld nach Zinsbindung
         restschuld_zinsbindung = 0.0
         if not df_display.empty:
             row = df_display[df_display['Jahr'] == zinsbindung]
             if not row.empty:
                 restschuld_zinsbindung = row.iloc[0]['Restschuld']
-            else:
-                restschuld_zinsbindung = 0.0
-                
-        st.metric(
-            f"Restschuld nach {zinsbindung} Jahren",
-            f"{restschuld_zinsbindung:,.2f} €",
-            help="Der verbleibende Kreditbetrag nach Ablauf der Zinsbindung. Dieser muss neu finanziert oder abgelöst werden."
-        )
-        st.metric(
-            "Laufzeit bis Volltilgung",
-            f"{jahr} Jahre",
-            help="Die geschätzte Zeit, bis der Kredit bei gleichbleibenden Konditionen vollständig zurückgezahlt ist."
-        )
+
+        # Gesamte Steuerersparnis
+        total_tax_saved = df_display['Steuerersparnis'].sum() if not df_display.empty else 0
         
-        st.markdown("---")
-        avg_cashflow = df_display['Cashflow'].mean() if not df_display.empty else 0
-        st.metric(
-            "Ø Cashflow (nach Steuer)",
-            f"{avg_cashflow:,.2f} €",
-            help="Der durchschnittliche jährliche Überschuss oder Fehlbetrag nach allen Kosten und Steuern."
-        )
-        
+        # Calculate other metrics
         end_vermoegen = df_display.iloc[-1]['Vermögen'] if not df_display.empty else 0
-        st.metric(
-            "Vermögen am Ende",
-            f"{end_vermoegen:,.2f} €",
-            help="Der Wert der Immobilie abzüglich der Restschuld am Ende der Laufzeit."
-        )
+        avg_cashflow = df_display['Cashflow'].mean() if not df_display.empty else 0
+        
+        # --- Metric Block 1: Investition ---
+        st.markdown("#### Investition")
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            st.metric("Kreditbetrag", f"{kreditbetrag:,.0f} €",
+                      help=f"Kaufpreis ({kaufpreis:,.0f}) + Nebenkosten ({nebenkosten_betrag:,.0f}) - Eigenkapital ({startkapital_gesamt:,.0f}).")
+            st.metric("Gesamtinvestition", f"{gesamtinvestition:,.0f} €", help=f"Kaufpreis ({kaufpreis:,.0f} €) + Kaufnebenkosten ({nebenkosten_betrag:,.0f} €)")
+
+        with col_m2:
+            st.metric("Vermögen Ende", f"{end_vermoegen:,.0f} €", help="Wert Immobilie - Restschuld")
+
+        # --- Metric Block 2: Monatlich ---
+        st.markdown("#### Monatliche Belastung")
+        col_m3, col_m4 = st.columns(2)
+        with col_m3:
+            st.metric(
+                "Monatliche Rate (Bank)",
+                f"{monatliche_rate:,.0f} €",
+                help="Die monatliche Zahlung an die Bank (Zins + Tilgung)."
+            )
+            st.metric(
+                "Ø Monatliche Gesamtkosten",
+                f"{avg_monatliche_gesamtkosten:,.0f} €",
+                help="Durchschnittliche monatliche Gesamtausgaben (Rate an Bank + Instandhaltung + Mietausfall)."
+            )
+        with col_m4:
+            st.metric(
+                "Ø Monatlicher Eigenaufwand",
+                f"{avg_eigenaufwand:,.0f} €",
+                help="Was du monatlich wirklich draufzahlst (Kosten minus Mieteinnahmen). Negativ bedeutet Gewinn."
+            )
+
+        # --- Metric Block 3: Steuer & Cashflow ---
+        st.markdown("#### Steuer & Cashflow")
+        col_m5, col_m6 = st.columns(2)
+        with col_m5:
+            st.metric("Gesamte Steuerersparnis", f"{total_tax_saved:,.0f} €", help="Summe der Steuerersparnisse über die gesamte Laufzeit.")
+        with col_m6:
+            st.metric("Ø Cashflow", f"{avg_cashflow:,.0f} €", help="Miete - Kosten - Steuer")
+
+        # --- Metric Block 4: Kredit-Details ---
+        st.markdown("#### Kredit-Details")
+        col_m7, col_m8 = st.columns(2)
+        with col_m7:
+            st.metric(f"Restschuld ({zinsbindung}J)", f"{restschuld_zinsbindung:,.0f} €")
+        with col_m8:
+            st.metric("Volltilgung nach", f"{jahr} Jahren")
 
     with col2:
         if show_analysis:
@@ -490,19 +520,27 @@ def render(inflationsrate: float):
         formeln = get_formeln("Immobilienkauf (innerhalb Familie)")
         tab_t, tab_g, tab_f = st.tabs(["Tabelle", "Graph", "📚 Formeln"])
         with tab_t:
-            cols_to_show = [
-                "Jahr", "Einkommen (zvE)", "Grenzsteuersatz (%)", "Restschuld", "Mieteinnahmen", "Instandhaltung", "Mietausfall",
-                "Zinsanteil", "Tilgungsanteil", "Monatliche Gesamtkosten", "Monatlicher Eigenaufwand", "AfA", "Steuerersparnis",
-                "Cashflow", "Hauswert", "Vermögen", "Zuwachs Vermögen",
-                "Vorfälligkeitsentschädigung (Exit)", "Netto-Erlös bei Verkauf (Exit)", "Scheidung: Ausgleichszahlung"
+            # Default hidden columns
+            cols_all = df_display.columns.tolist()
+            # Defaults to show
+            cols_default = [
+                "Jahr", "Restschuld", "Mieteinnahmen", "Instandhaltung",
+                "AfA", "Steuerersparnis", "Cashflow", "Vermögen"
             ]
-            format_dict = {col: "{:,.2f} €" for col in cols_to_show if col not in ["Jahr", "Grenzsteuersatz (%)"]}
-            format_dict["Jahr"] = "{:.0f}"
-            format_dict["Grenzsteuersatz (%)"] = "{:.1f} %"
+            cols_selected = st.multiselect("Spalten anzeigen:", cols_all, default=cols_default)
 
-            styler = df_display[cols_to_show].style.format(format_dict)
+            # Filter dataframe
+            df_filtered = df_display[cols_selected]
+
+            format_dict = {col: "{:,.2f} €" for col in cols_selected if col not in ["Jahr", "Grenzsteuersatz (%)"]}
+            if "Jahr" in cols_selected: format_dict["Jahr"] = "{:.0f}"
+            if "Grenzsteuersatz (%)" in cols_selected: format_dict["Grenzsteuersatz (%)"] = "{:.1f} %"
+
+            styler = df_filtered.style.format(format_dict)
             styler.hide(axis="index")
-            styler.set_properties(subset=["AfA"], **{'background-color': '#e8f5e9', 'color': 'black'})
+            
+            if "AfA" in cols_selected:
+                styler.set_properties(subset=["AfA"], **{'background-color': '#e8f5e9', 'color': 'black'})
             
             if nutze_sonderzeitraum:
                 def highlight_sonder(row):
@@ -511,33 +549,38 @@ def render(inflationsrate: float):
                     return ['' for _ in row.index]
                 styler.apply(highlight_sonder, axis=1)
 
+            # Helper to safely apply map if column exists
+            def safe_map(style_func, col_name, **kwargs):
+                if col_name in df_filtered.columns:
+                    styler.map(style_func, subset=[col_name], **kwargs)
+
             def color_cashflow(val):
                 if val < 0: return 'background-color: #ffcdd2; color: black'
                 elif val > 0: return 'background-color: #c8e6c9; color: black'
                 return ''
-            styler.map(color_cashflow, subset=['Cashflow'])
+            safe_map(color_cashflow, 'Cashflow')
 
             def color_growth(val):
                 if val > 0: return 'background-color: #dcedc8; color: black'
                 return ''
-            styler.map(color_growth, subset=['Zuwachs Vermögen'])
+            safe_map(color_growth, 'Zuwachs Vermögen')
 
             def color_tax_savings(val):
                 if val > 0: return 'background-color: #e1bee7; color: black'
                 return ''
-            styler.map(color_tax_savings, subset=['Steuerersparnis'])
+            safe_map(color_tax_savings, 'Steuerersparnis')
             
             def color_eigenaufwand(val):
                 if val > 0: return 'background-color: #ffebee; color: black'
                 elif val < 0: return 'background-color: #e8f5e9; color: black'
                 return ''
-            styler.map(color_eigenaufwand, subset=['Monatlicher Eigenaufwand'])
+            safe_map(color_eigenaufwand, 'Monatlicher Eigenaufwand')
             
             def color_exit(val):
                 if val > 0: return 'background-color: #c8e6c9; color: black'
                 elif val < 0: return 'background-color: #ffcdd2; color: black'
                 return ''
-            styler.map(color_exit, subset=['Netto-Erlös bei Verkauf (Exit)'])
+            safe_map(color_exit, 'Netto-Erlös bei Verkauf (Exit)')
 
             st.dataframe(styler, use_container_width=True, height=700, hide_index=True)
             

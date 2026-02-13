@@ -4,7 +4,7 @@ import streamlit as st
 st.set_page_config(layout="wide", page_title="Immobilienrechner & ETF-Vergleich")
 
 # --- Titel ---
-st.title("📊 Vermögensrechner: Investitions-Immobilie vs. ETF Sparplan")
+st.title("📊 Vermögensrechner: Immobilie (Familienkauf) vs. Immobilie (Neubau) vs. ETF")
 
 # --- Seitenleiste: Szenario-Auswahl ---
 st.sidebar.header("Szenario wählen")
