@@ -267,8 +267,8 @@ def render(inflationsrate: float):
     with st.sidebar.expander("5. Miete & Ausgaben", expanded=False):
         st.caption("Einnahmen und laufende Kosten")
         mieteinnahmen_pm = st.number_input("Monatliche Kaltmiete (€)", value=2116.0, step=50.0, key="nb_miete")
-        mietsteigerung_pa = st.slider("Jährliche Mietsteigerung (%)", 0.0, 5.0, 2.0, 0.1, key="nb_mietsteigerung")
-        instandhaltung_pa = st.number_input("Rücklage Instandhaltung/Jahr (€)", value=3000.0, step=100.0, key="nb_instandhaltung")
+        mietsteigerung_pa = st.slider("Jährliche Mietsteigerung (%)", 0.0, 5.0, 3.0, 0.1, key="nb_mietsteigerung")
+        instandhaltung_pa = st.number_input("Rücklage Instandhaltung/Jahr (€)", value=4000.0, step=100.0, key="nb_instandhaltung")
         mietausfall_pa = st.slider("Risiko Mietausfall (%)", 0.0, 10.0, 2.0, 0.5, key="nb_mietausfall")
         kostensteigerung_pa = st.slider("Kostensteigerung pro Jahr (%)", 0.0, 5.0, 2.0, 0.1, key="nb_kostensteigerung")
         wertsteigerung_pa = st.slider("Wertsteigerung Immobilie (%)", 0.0, 10.0, 2.0, 0.1, key="nb_wertsteigerung")
