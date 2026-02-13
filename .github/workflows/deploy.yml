@@ -19,9 +19,55 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
       - name: Create temp.html (stlite template)
+        shell: python
         run: |
-          cat <<EOF > temp.html
+          import glob
+          import json
+          import os
+
+          # 1. Collect Requirements
+          reqs = []
+          if os.path.exists("src/requirements.txt"):
+              with open("src/requirements.txt", "r") as f:
+                  # Filter empty lines and comments
+                  reqs = [line.strip() for line in f if line.strip() and not line.strip().startswith("#")]
+          
+          # Ensure critical packages for this specific app
+          # streamlint is in requirements.txt usually, but pandas/altair/numpy often need explicit mention for stlite if not present
+          # We add 'altair' as it is used for charts.
+          for pkg in ["streamlit", "pandas", "altair", "numpy"]:
+              if pkg not in reqs and not any(r.startswith(pkg) for r in reqs):
+                  reqs.append(pkg)
+          
+          print(f"DEBUG: Using requirements: {reqs}")
+
+          # 2. Collect Python Files
+          files = {}
+          # We walk 'src' to get strictly source files
+          for root, dirs, filenames in os.walk("src"):
+              for filename in filenames:
+                  if filename.endswith(".py"):
+                      path = os.path.join(root, filename)
+                      # Key relative to src/ (e.g. 'scenarios/immobilienkauf.py')
+                      # Stlite expects keys to be relative paths from the mount root (which is 'src' content mounted at '/')
+                      # Wait, if entrypoint is "mortgage-calculator-app.py", then "src/mortgage-calculator-app.py" should be mapped to "mortgage-calculator-app.py".
+                      rel_path = os.path.relpath(path, "src").replace("\\", "/")
+                      
+                      with open(path, "r", encoding="utf-8") as f:
+                          files[rel_path] = f.read()
+          
+          print(f"DEBUG: Found {len(files)} python files.")
+          print(f"DEBUG: Files keys: {list(files.keys())}")
+
+          # 3. Generate HTML
+          # We use double braces {{ }} for literal braces in f-string
+          html_content = f"""
           <!DOCTYPE html>
           <html>
             <head>
@@ -33,10 +79,10 @@ jobs:
           
               <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.63.1/build/stlite.css" />
               <style>
-                body { background-color: #0e1117; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-                .loading-container { text-align: center; }
-                .spinner { border: 4px solid rgba(255, 255, 255, 0.1); border-left-color: #ff4b4b; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-                @keyframes spin { to { transform: rotate(360deg); } }
+                body {{ background-color: #0e1117; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
+                .loading-container {{ text-align: center; }}
+                .spinner {{ border: 4px solid rgba(255, 255, 255, 0.1); border-left-color: #ff4b4b; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }}
+                @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
               </style>
             </head>
             <body>
@@ -52,20 +98,22 @@ jobs:
                 // Wir definieren die Basis-URL explizit, damit Firefox die Chunks findet
                 const baseUrl = "https://cdn.jsdelivr.net/npm/@stlite/mountable@0.63.1/build/";
           
-                stlite.mount({
-                  requirements: ["pandas", "altair"],
+                stlite.mount({{
+                  requirements: {json.dumps(reqs)},
                   entrypoint: "mortgage-calculator-app.py",
-                  files: {
-                    "mortgage-calculator-app.py": \`$(cat src/mortgage-calculator-app.py | sed 's/`/\\`/g')\`
-                  },
+                  files: {json.dumps(files)},
                   // Diese Option hilft stlite, seine eigenen Teile auf dem CDN zu finden:
                   archives: [],
                   stliteMountableServeNodeModules: true,
-                }, document.getElementById("root"));
+                }}, document.getElementById("root"));
               </script>
             </body>
           </html>
-          EOF
+          """
+          
+          with open("temp.html", "w", encoding="utf-8") as f:
+              f.write(html_content)
+
 
       - name: Encrypt with Staticrypt
         env:
