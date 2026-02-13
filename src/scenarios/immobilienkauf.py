@@ -457,11 +457,12 @@ def render(inflationsrate: float):
                 elif eigentums_modus == "Gemeinschaftseigentum (nach EK-Anteil)":
                      st.info("ℹ️ **Teilungsversteigerung:** Bei Streitigkeiten kann jeder Partner die Teilungsversteigerung beantragen. Das führt zu massiven Wertverlusten. Eine GbR-Vereinbarung ist oft sinnvoller als reines Gemeinschaftseigentum.")
                 
-                st.write("**Zinsänderungsrisiko:**")
                 if restschuld_zinsbindung > 0:
                     st.warning(f"In {zinsbindung} Jahren musst du **{restschuld_zinsbindung:,.0f} €** refinanzieren. Ist der Zins dann bei 5%, steigt deine Rate massiv. Tipp: Sondertilgungen nutzen, um diese Restschuld zu drücken!")
                 else:
                     st.success("Kein Zinsrisiko: Das Darlehen ist innerhalb der Zinsbindung getilgt.")
+                
+                row_10y = df_display[df_display['Jahr'] == 10]
                 if not row_10y.empty:
                     ausgleich = row_10y.iloc[0]['Scheidung: Ausgleichszahlung']
                     vermoegen = row_10y.iloc[0]['Vermögen']
