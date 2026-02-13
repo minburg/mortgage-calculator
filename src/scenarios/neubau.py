@@ -527,6 +527,26 @@ def render(inflationsrate: float):
         with col_m2:
             st.metric("Vermögen Ende", f"{end_vermoegen:,.0f} €", help="Wert Immobilie - Restschuld")
 
+            # ETF-Vergleich (Nominal)
+            r_etf_pa = st.session_state.get("etf_rendite", 7.0)
+            r_monatlich = r_etf_pa / 100 / 12
+            n_monate = len(df_projektion) * 12
+            if n_monate > 0:
+                fv_nom = df_projektion.iloc[-1]['Vermögen']
+                pv = startkapital_gesamt
+                zinsfaktor = (1 + r_monatlich) ** n_monate
+
+                if zinsfaktor > 1:
+                    # Formel: PMT = (FV - PV * q^n) * i / (q^n - 1)
+                    etf_rate = (fv_nom - pv * zinsfaktor) * r_monatlich / (zinsfaktor - 1)
+                else:
+                    etf_rate = 0
+
+                if etf_rate > 0:
+                    st.metric("Äquivalente ETF-Sparrate", f"{etf_rate:,.0f} €", help=f"Monatliche Sparrate, die nötig wäre, um bei {r_etf_pa}% Rendite das gleiche Endvermögen ({fv_nom:,.0f} €) zu erreichen (Startkapital: {pv:,.0f} €).")
+                else:
+                    st.metric("Äquivalente ETF-Sparrate", "0 €", help=f"Das Immobilien-Investment performt schlechter als das Startkapital bei {r_etf_pa}% Rendite.")
+
         # --- Metric Block 2: Monatlich ---
         st.markdown("#### Monatliche Belastung")
         col_m3, col_m4 = st.columns(2)
@@ -567,68 +587,69 @@ def render(inflationsrate: float):
     # --- Main content ---
     with col2:
         if show_analysis:
-            st.markdown("## 🧐 Experten-Analyse: Neubau Investition (Stand 2026)")
+            st.markdown("## 🧐 Experteneinschätzung & Risiko-Check (2026)")
             if show_inflation:
-                st.caption(f"⚠️ Inflationsbereinigt ({inflationsrate}% p.a.)")
+                st.caption(f"⚠️ Hinweis: Alle Beträge sind inflationsbereinigt ({inflationsrate}% p.a.), außer Kredit-Nennwerte.")
 
-            # 1. AfA-Analyse
-            with st.expander("1. AfA-Methode & Steuereffekt", expanded=True):
-                st.info(f"**Gewählte Methode:** {afa_methode}")
-                # Show first 5 years of AFA
-                if len(afa_schedule) >= 5:
-                    afa_preview = []
-                    for i in range(5):
-                        info = afa_schedule[i]
-                        afa_preview.append({
-                            "Jahr": i + 1,
-                            "AfA": f"{info['afa']:,.0f} €",
-                            "Sonder-AfA": f"{info['sonder_afa']:,.0f} €",
-                            "Buchwert": f"{info['buchwert']:,.0f} €",
-                            "Methode": info['methode_label'],
-                        })
-                    st.table(pd.DataFrame(afa_preview))
+            # --- 1. Neubau-Spezifika (Baurecht & AfA) ---
+            with st.expander("1. Neubau-Booster & Abschreibung (AfA)", expanded=True):
+                st.info(f"**Gewählte Abschreibung:** {afa_methode}")
+                
+                # AfA-Vorteil berechnen
+                afa_jahr1 = afa_schedule[0]['afa'] + afa_schedule[0]['sonder_afa']
+                steuervorteil_jahr1 = afa_jahr1 * (grenzsteuersatz if 'grenzsteuersatz' in locals() else 0.42) # fallback
+                
+                st.write(f"Im ersten Jahr kannst du **{afa_jahr1:,.0f} €** steuerlich geltend machen.")
+                if afa_methode == "Degressiv + §7b Sonder-AfA":
+                     st.success(f"🚀 **Steuer-Turbo:** Durch degressive AfA + §7b Sonder-AfA hast du in den ersten Jahren massive Steuererstattungen (ca. {steuervorteil_jahr1:,.0f} € in Jahr 1). Nutze diese Liquidität unbedingt zur Sondertilgung oder Re-Investition, nicht für Konsum!")
+                elif afa_methode == "Linear (3%)":
+                     st.info("ℹ️ **Solide Basis:** 3% AfA ist der neue Standard. Planbar und stetig.")
 
-                if afa_methode == "Linear (3%)":
-                    st.write(f"Jährliche AfA: **{baukosten * 0.03:,.0f} €** für 33⅓ Jahre.")
-                elif afa_methode in ("Degressiv (5%)", "Degressiv + §7b Sonder-AfA"):
-                    st.write(f"Jahr 1 degressive AfA: **{baukosten * 0.05:,.0f} €** (5% von {baukosten:,.0f} €)")
-                    st.write(f"Wechsel zu linear geplant in **Jahr {switch_year}**.")
+                if baukosten > 0 and wohnflaeche_m2 > 0:
+                     kosten_m2 = baukosten / wohnflaeche_m2
+                     if kosten_m2 > 4000:
+                         st.warning(f"⚠️ **Hohe Baukosten:** Mit {kosten_m2:,.0f} €/m² (nur Bauwerk) liegst du im oberen Bereich. Prüfe Puffer für Nachträge!")
 
-                    if afa_methode == "Degressiv + §7b Sonder-AfA":
-                        kosten_pro_m2 = baukosten / wohnflaeche_m2 if wohnflaeche_m2 > 0 else float('inf')
-                        if kosten_pro_m2 <= 5200:
-                            st.success(f"✅ §7b Sonder-AfA: zusätzlich **{baukosten * 0.05:,.0f} €/Jahr** für die ersten 4 Jahre.")
-                        else:
-                            st.error("❌ §7b nicht anwendbar — Baukosten/m² überschreiten €5.200.")
+            # --- 2. Das "Neubau-Premium" (Wertverlust bei Einzug) ---
+            with st.expander("2. Das 'Neubau-Premium' & Bewertung", expanded=True):
+                st.markdown("""
+                **Vorsicht Irrglaube:** "Ein Neubau ist immer mehr wert als er kostet."
+                *   **Realität:** Oft ist der Marktwert nach Fertigstellung *niedriger* als die Gestehungskosten (Summe aus Land + Bau + Nebenkosten).
+                *   Grund: Kaufnebenkosten und Baunebenkosten (Architekt, Erschließung) sieht der Markt oft nicht 1:1 als Wert.
+                """)
+                marktwert_fertig = grundstueckspreis + baukosten
+                kosten_total = gesamtinvestition
+                initial_loss = kosten_total - marktwert_fertig
+                
+                st.metric("Buchverlust bei Einzug", f"-{initial_loss:,.0f} €", help="Kaufnebenkosten + Baunebenkosten sind oft nicht sofort im Marktwert realisierbar.", delta_color="inverse")
+                
+                st.write("**Konsequenz:** Eine 100%-Finanzierung ist bei Neubau extrem riskant, da bei Notverkauf in Jahr 1-3 fast sicher Schulden übrig bleiben.")
 
-            # 2. Finanzierung
-            with st.expander("2. Finanzierung & Eigenkapital", expanded=True):
-                ek_quote = (startkapital_gesamt / gesamtinvestition) * 100
-                st.metric("Eigenkapitalquote", f"{ek_quote:.1f} %")
-                if ek_quote < 20:
-                    st.warning("🟠 **Erhöhtes Risiko (<20%):** Bei Neubauten verlangen Banken oft höheres EK.")
+            # --- 3. Finanzierung & Zinsrisiko ---
+            with st.expander("3. Finanzierung & Zins-Hammer", expanded=True):
+                 ek_quote = (startkapital_gesamt / gesamtinvestition) * 100
+                 st.metric("Eigenkapitalquote", f"{ek_quote:.1f} %")
+                 
+                 restschuld_ende = restschuld_zinsbindung
+                 if restschuld_ende > 0:
+                     st.warning(f"**Anschlussfinanzierung:** Nach {zinsbindung} Jahren hast du noch **{restschuld_ende:,.0f} €** Schulden.")
+                     if restschuld_ende > 300000:
+                         st.error("🔴 **Hohes Restschuld-Risiko:** Wenn der Zins dann bei 6% liegt, verdoppelt sich deine Zinslast fast. Bausparer oder Volltilger-Darlehen prüfen!")
+                 else:
+                     st.success("✅ **Sicher:** Du bist am Ende der Zinsbindung schuldenfrei.")
+
+            # --- 4. Die Cashflow-Rechnung ---
+            with st.expander("4. Cashflow & Instandhaltung", expanded=True):
+                avg_cf = df_display['Cashflow'].mean() if not df_display.empty else 0
+                st.metric("Ø Cashflow (nach Steuer)", f"{avg_cf:,.0f} €")
+                
+                if avg_cf < 0:
+                     st.error("🔴 **Zuzahlungs-Geschäft:** Trotz Steuervorteilen zahlst du drauf. Ist das dauerhaft leistbar?")
+                
+                if instandhaltung_pa < (baukosten * 0.005):
+                    st.success("✅ **Neubau-Vorteil:** In den ersten 10-15 Jahren fallen kaum Reparaturen an. Deine niedrige Instandhaltungspauschale ist hier gerechtfertigt.")
                 else:
-                    st.success("🟢 **Solide Basis:** Gute Voraussetzungen für die Finanzierung.")
-
-            # 3. Rentabilität
-            with st.expander("3. Rentabilität", expanded=True):
-                brutto_mietrendite = (mieteinnahmen_pm * 12 / gesamtinvestition) * 100
-                kaufpreisfaktor = gesamtinvestition / (mieteinnahmen_pm * 12) if mieteinnahmen_pm > 0 else 0
-                col_a, col_b = st.columns([1, 2])
-                with col_a:
-                    st.metric("Brutto-Mietrendite", f"{brutto_mietrendite:.2f} %")
-                    st.metric("Kaufpreisfaktor", f"{kaufpreisfaktor:.1f}")
-                with col_b:
-                    if brutto_mietrendite < zinssatz:
-                        st.warning(f"🟠 Mietrendite ({brutto_mietrendite:.2f}%) < Kreditzins ({zinssatz}%).")
-                    else:
-                        st.success("🟢 Mietrendite über Kreditzins.")
-                    if kaufpreisfaktor > 30:
-                        st.error("🔴 Kaufpreisfaktor > 30 — sehr teuer.")
-                    elif kaufpreisfaktor > 25:
-                        st.warning("🟠 Kaufpreisfaktor 25-30 — marktüblich bis teuer.")
-                    else:
-                        st.success("🟢 Kaufpreisfaktor < 25 — günstig.")
+                    st.info("ℹ️ **Vorsichtig kalkuliert:** Du hast Instandhaltung wie bei einem Altbau angesetzt. Das schafft stille Reserven.")
 
             st.markdown("---")
 

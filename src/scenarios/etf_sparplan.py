@@ -112,54 +112,44 @@ def render(inflationsrate: float):
 
     with col2:
         if show_analysis:
-            st.markdown("## 🧐 Experten-Analyse: ETF-Sparplan (Stand 2026)")
+            st.markdown("## 🧐 Experteneinschätzung: ETF (2026)")
             if show_inflation:
                 st.caption(f"⚠️ Hinweis: Die Analyse basiert auf den inflationsbereinigten Werten ({inflationsrate}% p.a.).")
 
-            # --- 1. Rendite-Check & Zinseszins ---
-            with st.expander("1. Rendite-Erwartung & Zinseszins-Effekt", expanded=True):
+            # --- 1. Der Zinseszins-Effekt ---
+            with st.expander("1. Die Macht des Zinseszins (Exponential)", expanded=True):
                 col_a, col_b = st.columns([1, 2])
                 with col_a:
-                    st.metric("Angenommene Rendite", f"{etf_rendite:.1f} %", help="Die durchschnittliche historische Rendite des MSCI World lag bei ca. 7-8% p.a. (vor Inflation).")
+                    st.metric("Angenommene Rendite", f"{etf_rendite:.1f} %")
                 with col_b:
-                    if etf_rendite > 9.0:
-                        st.warning("🟠 **Sehr optimistisch (>9%):** Historisch selten langfristig erzielt. Plane lieber konservativer (6-8%), um Enttäuschungen zu vermeiden.")
-                    elif etf_rendite < 4.0:
-                        st.info("🟡 **Sehr konservativ (<4%):** Das deckt kaum die Inflation. Aktienmärkte bieten langfristig meist mehr Risikoprämie.")
+                    if etf_rendite > 8.5:
+                        st.warning("🟠 **Sehr sportlich:** Nur mit 100% Aktienquote und Glück langfristig erreichbar. Plane lieber mit 7%.")
                     else:
-                        st.success("🟢 **Realistisch (4-9%):** Deckt sich mit historischen Marktdaten für breit gestreute Welt-ETFs.")
+                        st.success("✅ **Realistisch:** Welt-Portfolio Standard.")
                 
                 total_gewinn = df_display.iloc[-1]['Gewinn (unrealisiert)'] if not df_display.empty else 0
                 zinseszins_anteil = (total_gewinn / end_netto * 100) if end_netto > 0 else 0
-                st.write(f"Am Ende bestehen **{zinseszins_anteil:.0f}%** deines Vermögens nur aus Gewinnen (Zinseszins).")
-                st.info("💡 **Der Zinseszins-Effekt:** In den ersten Jahren passiert wenig, aber ab Jahr 15-20 explodiert die Kurve. Geduld ist der wichtigste Faktor!")
+                st.write(f"In den letzten Jahren explodiert dein Vermögen: **{zinseszins_anteil:.0f}%** des Endkapitals sind reine Kursgewinne.")
+                st.info("💡 **Geduld-Probe:** In den ersten 10-15 Jahren sieht der ETF gegen die Immobilie oft 'langweilig' aus (linearer Anstieg). Der Turbo zündet erst später (exponentiell). Halte durch!")
 
-            # --- 2. Risiko & Volatilität ---
-            with st.expander("2. Risiko & Volatilität (Der 'Crash-Test')", expanded=True):
-                st.markdown("Aktienmärkte schwanken. Ein Crash von **-50%** ist historisch alle paar Jahrzehnte normal.")
-                crash_wert = end_netto * 0.5
-                st.metric("Vermögen nach 50% Crash", f"{crash_wert:,.2f} €", delta=f"-{crash_wert:,.2f} €", delta_color="inverse", help="Simulation: Was wäre dein Depot wert, wenn kurz vor der Rente ein massiver Börsencrash passiert?")
-                
-                st.warning("⚠️ **Sequencing Risk:** Wenn du das Geld zu einem festen Zeitpunkt *brauchst* (z.B. Renteneintritt), musst du 5-10 Jahre vorher anfangen, in sichere Anlagen (Anleihen/Tagesgeld) umzuschichten, um nicht im Crash verkaufen zu müssen.")
-
-            # --- 3. Steuer-Falle & Kosten ---
-            with st.expander("3. Steuer & Kosten", expanded=True):
-                end_steuer = df_display.iloc[-1]['Potenzielle Steuer'] if not df_display.empty else 0
-                st.metric("Latente Steuerlast am Ende", f"{end_steuer:,.2f} €", help="Diesen Betrag schuldest du dem Finanzamt, sobald du verkaufst. Er arbeitet bis dahin aber weiter für dich (Steuerstundungseffekt).")
-                
-                if etf_steuer < 18.0:
-                     st.error("🔴 **Steuer zu niedrig angesetzt?** Kapitalertragsteuer ist 25% + Soli. Mit Teilfreistellung (30% bei Aktienfonds) landest du bei ca. 18,5%. Weniger ist unrealistisch, außer Günstigerprüfung greift.")
-                
-                st.info("ℹ️ **Vorteil gegenüber Immobilie:** Du zahlst keine Grunderwerbsteuer, Notar oder Grundsteuer. Die laufenden Kosten (TER) eines ETF sind mit 0,2% minimal im Vergleich zur Instandhaltung eines Hauses.")
-
-            # --- 4. Psychologie & Disziplin ---
-            with st.expander("4. Psychologie & Disziplin (Der größte Feind)", expanded=True):
+            # --- 2. Psychologie & Disziplin (Das größte Risiko) ---
+            with st.expander("2. Psychologie vs. Zwangssparen", expanded=True):
                 st.markdown("""
-                **Gängige Fehlannahmen & Risiken:**
-                *   ❌ **"Ich verkaufe, wenn es fällt":** Der größte Renditekiller. Wer im Crash verkauft, realisiert Verluste.
-                *   ❌ **Sparrate aussetzen:** Wenn du die Sparrate von **1.000 €** mal ein Jahr aussetzt, fehlen dir am Ende durch den Zinseszins vielleicht **50.000 €**.
-                *   ✅ **Flexibilität:** Im Gegensatz zum Hauskredit kannst du die Rate notfalls reduzieren, ohne dass die Bank dir den Vertrag kündigt.
+                **ETF vs. Immobilie:**
+                *   🏢 **Immobilie (Zwangssparen):** Du *musst* die Rate zahlen, sonst kommt die Bank. Das diszipliniert extrem.
+                *   📈 **ETF (Freiwilligkeit):** Wenn du mal knapp bei Kasse bist, setzt du die Sparrate aus. Oder du verkaufst im Crash aus Panik.
                 """)
+                st.error("🔴 **Der Feind im Spiegel:** Statistisch erreichen Privatanleger deutlich weniger Rendite als der Markt, weil sie hin und her handeln (Market Timing). Wenn du die Sparrate ({:,.0f} €) nicht eisern durchhälst, gewinnt die Immobilie.".format(etf_sparrate))
+                
+                crash_wert = end_netto * 0.6
+                st.warning(f"⚠️ **Crash-Simulation:** Stell dir vor, kurz vor Renteneintritt crasht der Markt um 40%. Dein Depot fällt auf **{crash_wert:,.0f} €**. Kannst du das aussitzen? (Lösung: Umschichten 5-10 Jahre vor Ziel).")
+
+            # --- 3. Flexibilität & Steuern ---
+            with st.expander("3. Flexibilität & Steuer-Nachteil", expanded=True):
+                st.success("🟢 **Maximale Freiheit:** Du kannst jederzeit an dein Geld (z.B. für Sabbatical, Notfälle). Ein Haus kannst du nicht 'stückweise' verkaufen.")
+                
+                end_steuer = df_display.iloc[-1]['Potenzielle Steuer'] if not df_display.empty else 0
+                st.info(f"ℹ️ **Steuer-Nachteil:** Während Immobilienver Gewinne nach 10 Jahren steuerfrei sind, musst du auf ETF-Gewinne immer Abgeltungssteuer zahlen (hier latente Last: **{end_steuer:,.0f} €**). Dafür hast du keine Instandhaltungskosten.")
 
             st.markdown("---")
 
