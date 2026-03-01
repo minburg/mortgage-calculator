@@ -55,7 +55,7 @@ def render():
                     value=int(st.session_state.get("v2_einkommen_a", 71_000)),
                     step=1_000,
                     key="v2_einkommen_a_input",
-                    help="Zu versteuerndes Brutto-Jahreseinkommen (wichtig für die Steuerersparnis).",
+                    help="Zu versteuerndes Jahreseinkommen (wichtig für die Steuerersparnis).",
                 )
                 geschenk_a = st.number_input(
                     "Schenkung (€)",
@@ -90,7 +90,7 @@ def render():
                         value=int(st.session_state.get("v2_einkommen_b", 80_000)),
                         step=1_000,
                         key="v2_einkommen_b_input",
-                        help="Zu versteuerndes Brutto-Jahreseinkommen (wichtig für die Steuerersparnis).",
+                        help="Zu versteuerndes Jahreseinkommen von Person B.",
                     )
                     geschenk_b = st.number_input(
                         "Schenkung (€)",
@@ -104,7 +104,7 @@ def render():
                     "📜 Ehevertrag: Immobilie aus Zugewinngemeinschaft ausgeschlossen",
                     value=st.session_state.get("v2_ehevertrag", False),
                     key="v2_ehevertrag_input",
-                    help="Gütertrennung für diesen Gegenstand (verhindert Zugewinnausgleich bei Scheidung).",
+                    help="Wenn aktiviert, wird angenommen, dass ein Ehevertrag existiert, der die Immobilie aus dem Zugewinnausgleich herausnimmt (Gütertrennung für diesen Gegenstand).",
                 )
         else:
             name_b = st.session_state.get("v2_name_b", "Person B")
@@ -118,7 +118,7 @@ def render():
             "⏱️ Sonderzeitraum aktivieren (z.B. Elternzeit, Teilzeit)",
             value=st.session_state.get("v2_sonderzeitraum", False),
             key="v2_sonderzeitraum_input",
-            help="Ermöglicht in der Ausführlichen Berechnung die Definition von reduzierten Einkommen für bestimmte Jahre."
+            help="Ermöglicht in der Ausführlichen Berechnung die Definition von reduzierten Einkommen für bestimmte Jahre Z.B. Elternzeit oder Teilzeit."
         )
 
         if nutze_sonderzeitraum:

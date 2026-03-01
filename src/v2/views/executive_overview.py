@@ -151,18 +151,22 @@ def render():
                 st.metric(
                     "Monatliche Rate (Bank)",
                     _fmt(neubau.get("monatliche_rate", 0)),
+                    help="Annuität: Zins + Tilgung pro Monat.",
                 )
                 st.metric(
                     "Ø Monatlicher Eigenaufwand",
                     _fmt(neubau.get("monatlicher_eigenaufwand", 0)),
+                    help="Ø monatliche Zuzahlung aus eigenem Nettoeinkommen (Rate + Kosten − Miete).",
                 )
                 st.metric(
                     "Gesamte Steuerersparnis",
                     _fmt(neubau.get("steuerersparnis_gesamt", 0)),
+                    help="Summe der jährlichen Steuerersparnisse (AfA + Zinsen als Werbungskosten).",
                 )
                 st.metric(
                     "Volltilgung nach",
                     f"{neubau.get('laufzeit_jahre', '?')} Jahren",
+                    help="Jahre bis das Darlehen vollständig getilgt ist.",
                 )
                 st.markdown("---")
                 verlauf = neubau.get("eigenaufwand_verlauf", [])
@@ -193,6 +197,7 @@ def render():
                 st.metric(
                     "Ø Monatlicher Eigenaufwand",
                     _fmt(sparrate),
+                    help="Die monatliche Sparrate wird dem Ø Eigenaufwand der Immobilie gleichgesetzt.",
                 )
                 st.metric(
                     "Gesamtgewinn (brutto)",
@@ -203,6 +208,7 @@ def render():
                 st.metric(
                     "Laufzeit / Rendite",
                     f"{laufzeit} J. / {float(etf_rendite):.1f}%",
+                    help="Annahmerahmen für die Berechnung.",
                 )
                 st.markdown("---")
                 verlauf = etf.get("eigenaufwand_verlauf", [])

@@ -48,11 +48,13 @@ def render(inflationsrate: float, wizard_defaults: dict = None):
             "Startkapital Partner (€)",
             value=_d(wizard_defaults, "v2_ek_b", 0.0),
             key="shared_ek_b",
+            help="Kapital des Partners (optional).",
         )
         geschenk_partner = persistent_number_input(
             "Schenkung Partner (€)",
             value=_d(wizard_defaults, "v2_geschenk_b", 0.0),
             key="shared_geschenk_b",
+            help="Schenkung an Partner (optional).",
         )
         startkapital_gesamt = eigenkapital_kaeufer + geschenk + eigenkapital_partner + geschenk_partner
 
@@ -62,18 +64,19 @@ def render(inflationsrate: float, wizard_defaults: dict = None):
             "Rendite (%)", 0.0, 15.0,
             _d(wizard_defaults, "v2_etf_rendite", 7.0),
             0.1, key="etf_rendite",
-            help="Langfristiger Durchschnitt des MSCI World: ca. 7-8%.",
+            help="Langfristiger Durchschnitt des MSCI World liegt oft bei ca. 7-8%.",
         )
         etf_sparrate = persistent_number_input(
             "Sparrate (€)", value=1_000.0, key="etf_sparrate",
-            help="Monatliche Einzahlung in den ETF.",
+            help="Wie viel Geld steckst du jeden Monat zusätzlich in den ETF? (Vergleichbar mit dem Eigenaufwand beim Hauskauf)",
         )
         etf_steuer = persistent_slider(
             "Steuersatz (%)", 0.0, 30.0, 18.5, 0.5, key="etf_steuersatz",
-            help="Effektiver Steuersatz: Abgeltungssteuer (25%) + Soli, mit Teilfreistellung ≈ 18.5%.",
+            help="Kapitalertragsteuer (25%) + Soli. Bei Aktienfonds oft Teilfreistellung (30% steuerfrei), daher effektiv ca. 18.5%.",
         )
         laufzeit_etf = persistent_slider(
             "Laufzeit (Jahre)", 5, 60, 30, key="etf_laufzeit",
+            help="Wie lange soll der Sparplan laufen?",
         )
 
     # =========================================================================

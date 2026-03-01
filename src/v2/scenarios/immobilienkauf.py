@@ -80,7 +80,7 @@ def render(inflationsrate: float, wizard_defaults: dict = None):
                 "Ehevertrag: Immobilie aus Zugewinn ausgeschlossen?",
                 value=_d(wizard_defaults, "v2_ehevertrag", False),
                 key="immo_vertrag_zugewinn",
-                help="Gütertrennung für diesen Gegenstand.",
+                help="Wenn aktiviert, wird angenommen, dass ein Ehevertrag existiert, der die Immobilie aus dem Zugewinnausgleich herausnimmt (Gütertrennung für diesen Gegenstand).",
             )
         else:
             st.caption("Beide Partner bringen Kapital ein.")
@@ -117,6 +117,7 @@ def render(inflationsrate: float, wizard_defaults: dict = None):
             min_value=50_000.0, max_value=5_000_000.0,
             value=_d(wizard_defaults, "v2_kaufpreis", 1_150_000.0),
             step=10_000.0, key="immo_kaufpreis",
+            help="Der Preis, der im Kaufvertrag steht. Auf diesen Betrag beziehen sich Finanzierung und Abschreibung.",
         )
 
         st.markdown("##### Kaufnebenkosten")
@@ -379,10 +380,12 @@ def render(inflationsrate: float, wizard_defaults: dict = None):
         st.markdown("#### Investition")
         col_m1, col_m2 = st.columns(2)
         with col_m1:
-            st.metric("Kreditbetrag", f"{kreditbetrag:,.0f} €")
-            st.metric("Gesamtinvestition", f"{gesamtinvestition:,.0f} €")
+            st.metric("Kreditbetrag", f"{kreditbetrag:,.0f} €",
+                      help=f"Kaufpreis ({kaufpreis:,.0f}) + Nebenkosten ({nebenkosten_betrag:,.0f}) - Eigenkapital ({startkapital_gesamt:,.0f}).")
+            st.metric("Gesamtinvestition", f"{gesamtinvestition:,.0f} €",
+                      help=f"Kaufpreis ({kaufpreis:,.0f} €) + Kaufnebenkosten ({nebenkosten_betrag:,.0f} €)")
         with col_m2:
-            st.metric("Vermögen Ende", f"{end_vermoegen:,.0f} €")
+            st.metric("Vermögen Ende", f"{end_vermoegen:,.0f} €", help="Wert Immobilie - Restschuld")
 
             r_etf_pa = st.session_state.get("v2_etf_rendite") or st.session_state.get("etf_rendite", 7.0)
             r_monatlich = r_etf_pa / 100 / 12
@@ -396,24 +399,30 @@ def render(inflationsrate: float, wizard_defaults: dict = None):
                 else:
                     etf_rate = 0
                 if etf_rate > 0:
-                    st.metric("Äquivalente ETF-Sparrate", f"{etf_rate:,.0f} €")
+                    st.metric("Äquivalente ETF-Sparrate", f"{etf_rate:,.0f} €",
+                              help=f"Monatliche Sparrate, die nötig wäre, um bei {r_etf_pa}% Rendite das gleiche Endvermögen ({fv_nom:,.0f} €) zu erreichen (Startkapital: {pv:,.0f} €).")
                 else:
-                    st.metric("Äquivalente ETF-Sparrate", "0 €")
+                    st.metric("Äquivalente ETF-Sparrate", "0 €",
+                              help=f"Das Immobilien-Investment performt schlechter als das Startkapital bei {r_etf_pa}% Rendite.")
 
         st.markdown("#### Monatliche Belastung")
         col_m3, col_m4 = st.columns(2)
         with col_m3:
-            st.metric("Monatliche Rate (Bank)", f"{monatliche_rate:,.0f} €")
-            st.metric("Ø Monatliche Gesamtkosten", f"{avg_monatliche_gesamtkosten:,.0f} €")
+            st.metric("Monatliche Rate (Bank)", f"{monatliche_rate:,.0f} €",
+                      help="Die monatliche Zahlung an die Bank (Zins + Tilgung).")
+            st.metric("Ø Monatliche Gesamtkosten", f"{avg_monatliche_gesamtkosten:,.0f} €",
+                      help="Durchschnittliche monatliche Gesamtausgaben (Rate an Bank + Instandhaltung + Mietausfall).")
         with col_m4:
-            st.metric("Ø Monatlicher Eigenaufwand", f"{avg_eigenaufwand:,.0f} €")
+            st.metric("Ø Monatlicher Eigenaufwand", f"{avg_eigenaufwand:,.0f} €",
+                      help="Was du monatlich wirklich draufzahlst (Kosten minus Mieteinnahmen). Negativ bedeutet Gewinn.")
 
         st.markdown("#### Steuer & Cashflow")
         col_m5, col_m6 = st.columns(2)
         with col_m5:
-            st.metric("Gesamte Steuerersparnis", f"{total_tax_saved:,.0f} €")
+            st.metric("Gesamte Steuerersparnis", f"{total_tax_saved:,.0f} €",
+                      help="Summe der Steuerersparnisse über die gesamte Laufzeit.")
         with col_m6:
-            st.metric("Ø Cashflow", f"{avg_cashflow:,.0f} €")
+            st.metric("Ø Cashflow", f"{avg_cashflow:,.0f} €", help="Miete - Kosten - Steuer")
 
         st.markdown("#### Kredit-Details")
         col_m7, col_m8 = st.columns(2)
@@ -450,7 +459,8 @@ def render(inflationsrate: float, wizard_defaults: dict = None):
 
             with st.expander("1. Vermögensaufbau & Opportunitätskosten", expanded=True):
                 netto_mietrendite = (aktuelle_jahresmiete - aktuelle_instandhaltung) / gesamtinvestition * 100
-                st.metric("Netto-Mietrendite (Start)", f"{netto_mietrendite:.2f} %")
+                st.metric("Netto-Mietrendite (Start)", f"{netto_mietrendite:.2f} %",
+                          help="(Jahreskaltmiete - Instandhaltung) / Gesamtinvestition. Das ist die 'echte' Verzinsung des Objekts vor Steuern und Finanzierung.")
                 if netto_mietrendite < zinssatz:
                     st.warning(
                         f"⚠️ **Negativer Leverage-Effekt:** Netto-Mietrendite ({netto_mietrendite:.2f}%) < Kreditzins ({zinssatz}%).")
